@@ -2,7 +2,8 @@ use crate::atom::*;
 use crate::constant;
 use bevy::prelude::*;
 use bevy::tasks::ComputeTaskPool;
-
+use nalgebra::Vector3;
+use crate::initiate::NewlyCreated;
 
 pub struct Step {
     pub n: u64,
@@ -44,5 +45,72 @@ fn velocity_verlet_integrate_position (
     mut step: ResMut<Step>,
     mut query: Query<(&mut Position, &mut OldForce, &Velocity, &Force, &Mass)>,
 ) {
+    step.n += 1;
+    let dt = timestep.delta;
 
+    query.par_for_each_mut(
+        &pool,
+        batch_size.0,
+        |(mut pos, mut old_force, vel, force, mass)|{
+            pos.pos = pos.pos + vel.vel * dt + force.force/(constant::AMU*mass.value) / 2.0 * dt * dt;
+            old_force.0 = *force;
+        }
+    );
+}
+
+pub const INTEGRATE_VELOCITY_SYSTEM_NAME: &str = "integrate_velocity";
+
+fn velocity_verlet_integrate_velocity (
+    pool: Res<ComputeTaskPool>,
+    batch_size: Res<BatchSize>,
+    timestep: Res<Timestep>,
+    mut query: Query<(&mut Velocity, &Force, &OldForce, &Mass)>,
+) {
+    let dt = timestep.delta;
+
+    query.par_for_each_mut (
+        &pool,
+        batch_size.0,
+        |(mut vel, force, old_force, mass)| {
+            vel.vel += (force.force + old_force.0.force) / (constant::AMU * mass.value) / 2.0 * dt;
+        }    
+    );
+}
+
+fn add_old_force_to_new_atoms(
+    mut commands: Commands,
+    query: Query<Entity, (With<NewlyCreated>, Without<OldForce>)>
+) {
+    for ent in query.iter() {
+        commands.entity(ent).insert(OldForce::default());
+    }
+}
+
+fn calc_lj_force (
+    pool: Res<ComputeTaskPool>,
+    batch_size: Res<BatchSize>,
+    timestep: ResMut<Timestep>,
+    mut query: Query<(&mut Force, &mut OldForce, &Position, &LJParams)>,
+    //query_j: Query<(&Force, &OldForce, &Position, &LJParams)>
+) {
+    const K: usize = 2;
+    let mut particle_combos = query.iter_combinations_mut::<K>();
+
+    while let Some([(mut force1, mut old_force1, pos1, lj_params1), (mut force2, mut old_force2, pos2, lj_params2)]) 
+    = particle_combos.fetch_next() {
+        // here we have a pair of atoms in the system labeled as 1 and 2 for calculating the interaction between them.
+        // since the iter_combo methods returns a combinations of targeted entity withou repeatation 
+        // we can calculate the force asserted on each atom of the combo and update the said force.
+
+        
+
+    }
+
+    query.par_for_each_mut (
+        &pool,
+        batch_size.0,
+        |(mut force, mut old_force, pos, lj_params)| {
+
+        }
+    );
 }

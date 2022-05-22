@@ -60,3 +60,9 @@ pub struct Mass {
 
 #[derive(Default, Component)]
 pub struct Atom;
+
+#[derive(Component)]
+pub struct LJParams {
+    pub sigma: f64,
+    pub epsilon: f64,
+}
