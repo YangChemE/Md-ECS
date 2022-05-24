@@ -1,5 +1,7 @@
 use crate::atom::*;
 use crate::constant;
+use crate::simbox::*;
+use crate::lj_interaction::*;
 use bevy::prelude::*;
 use bevy::tasks::ComputeTaskPool;
 use nalgebra::Vector3;
@@ -27,7 +29,7 @@ impl Default for Timestep {
 }
 
 #[derive(Component, Default)]
-pub struct OldForce(Force);
+pub struct OldForce(pub Force);
 
 pub const INTEGRATE_POSITION_SYSTEM_NAME: &str = "integrate_position";
 
@@ -84,33 +86,4 @@ fn add_old_force_to_new_atoms(
     for ent in query.iter() {
         commands.entity(ent).insert(OldForce::default());
     }
-}
-
-fn calc_lj_force (
-    pool: Res<ComputeTaskPool>,
-    batch_size: Res<BatchSize>,
-    timestep: ResMut<Timestep>,
-    mut query: Query<(&mut Force, &mut OldForce, &Position, &LJParams)>,
-    //query_j: Query<(&Force, &OldForce, &Position, &LJParams)>
-) {
-    const K: usize = 2;
-    let mut particle_combos = query.iter_combinations_mut::<K>();
-
-    while let Some([(mut force1, mut old_force1, pos1, lj_params1), (mut force2, mut old_force2, pos2, lj_params2)]) 
-    = particle_combos.fetch_next() {
-        // here we have a pair of atoms in the system labeled as 1 and 2 for calculating the interaction between them.
-        // since the iter_combo methods returns a combinations of targeted entity withou repeatation 
-        // we can calculate the force asserted on each atom of the combo and update the said force.
-
-        
-
-    }
-
-    query.par_for_each_mut (
-        &pool,
-        batch_size.0,
-        |(mut force, mut old_force, pos, lj_params)| {
-
-        }
-    );
 }
