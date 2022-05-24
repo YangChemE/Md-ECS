@@ -45,7 +45,7 @@ fn calc_lj_force (
         // converting to A and B
         //let a = 4.0 * epsilon_12 * sigma_12.powf(12.0);
         //let b = 4.0 * epsilon_12 * sigma_12.powf(6.0);
-        if r_square < cut_off.rc.powf(2.0) {
+        if r_square < cut_off.rc.powf(2.0) { // cehck for cut-off distance
             let lj_ff = 48.0 * epsilon_12 * (1.0/r_square)*(1.0/r_square.powf(3.0)) * (r_square.powf(3.0) - 0.5);
             let lj_force_x = lj_ff * r1[0];
             let lj_force_y = lj_ff * r1[1];

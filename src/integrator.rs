@@ -40,6 +40,28 @@ impl Default for BatchSize {
     }
 }
 
+
+fn integrate_equation_of_motion (
+    pool: Res<ComputeTaskPool>,
+    batch_size: Res<BatchSize>,
+    timestep: ResMut<Timestep>,
+    mut step: ResMut<Step>,
+    mut query: Query<(&mut Position, &mut Velocity, &mut OldForce, &Force, &Mass)>,
+) {
+    let dt = timestep.delta;
+    query.par_for_each_mut(
+        &pool,
+        batch_size.0,
+        |(mut pos, mut vel, mut old_force, force, mass)| {
+            vel.vel += (force.force + old_force.0.force) / (constant::AMU* mass.value) /2.0 * dt;
+            pos.pos = pos.pos + vel.vel * dt + force.force / (constant::AMU*mass.value) / 2.0 *dt *dt;
+            old_force.0 = *force;
+            
+        }
+    )
+}
+
+
 fn velocity_verlet_integrate_position (
     pool: Res<ComputeTaskPool>,
     batch_size: Res<BatchSize>,
