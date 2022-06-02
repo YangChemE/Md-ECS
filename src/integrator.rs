@@ -159,3 +159,21 @@ impl Plugin for IntegrationPlugin {
             velocity_verlet_integrate_velocity.label(IntegrationSystems::VelocityVerletIntegrateVelocity));
     }
 }
+
+pub mod tests {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_add_old_force_system() {
+        let mut app = App::new();
+        app.add_plugin(IntegrationPlugin);
+
+        let test_entity = app.world.spawn().insert(NewlyCreated).id();
+        app.update();
+        assert!(
+            app.world.entity(test_entity).contains::<OldForce>(),
+            "OldForce component not added to test entity."
+        );
+    }
+}

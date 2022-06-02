@@ -45,8 +45,8 @@ fn calc_lj_force (
         // converting to A and B
         //let a = 4.0 * epsilon_12 * sigma_12.powf(12.0);
         //let b = 4.0 * epsilon_12 * sigma_12.powf(6.0);
-        if r_square < cut_off.rc.powf(2.0) { // cehck for cut-off distance
-            let lj_ff = 48.0 * epsilon_12 * (1.0/r_square)*(1.0/r_square.powf(3.0)) * (r_square.powf(3.0) - 0.5);
+        if r_square < cut_off.rc.powf(2.0) { // check for cut-off distance
+            let lj_ff = 48.0 * epsilon_12 * (1.0/r_square)*(1.0/r_square.powf(3.0)) * (sigma_12.powf(12.0) * r_square.powf(3.0) - sigma_12.powf(6.0) * 0.5);
             let lj_force_x = lj_ff * r1[0];
             let lj_force_y = lj_ff * r1[1];
             let lj_force_z = lj_ff * r1[2];
@@ -60,3 +60,23 @@ fn calc_lj_force (
         }
     }
 }
+
+pub struct LJPlugin;
+impl Plugin for LJPlugin {
+    fn build(&self, app: &mut App) {
+        
+    }
+}
+/* 
+pub mod tests {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_calc_lj_force() {
+        let mut app = App::new();
+        app.add_plugin()
+    }
+}
+
+*/
