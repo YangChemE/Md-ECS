@@ -1,5 +1,6 @@
 use crate::atom::*;
 use crate::constant;
+use crate::lj_interaction;
 use crate::simbox::*;
 use crate::lj_interaction::*;
 use bevy::prelude::*;
@@ -20,6 +21,14 @@ impl Default for Step {
 
 pub struct Timestep {
     pub delta: f64,
+}
+
+impl Timestep {
+    pub fn new(dt: f64) -> Self {
+        Self {
+            delta: dt
+        }
+    }
 }
 
 impl Default for Timestep {
@@ -67,6 +76,8 @@ fn velocity_verlet_integrate_position (
     batch_size: Res<BatchSize>,
     timestep: ResMut<Timestep>,
     mut step: ResMut<Step>,
+    boxbound: Res<BoxBound>,
+    simbox: Res<SimBox>,
     mut query: Query<(&mut Position, &mut OldForce, &Velocity, &Force, &Mass)>,
 ) {
     step.n += 1;
@@ -77,6 +88,9 @@ fn velocity_verlet_integrate_position (
         batch_size.0,
         |(mut pos, mut old_force, vel, force, mass)|{
             pos.pos = pos.pos + vel.vel * dt + force.force/(constant::AMU*mass.value) / 2.0 * dt * dt;
+            pos.pos.x = boxbound.xmin + (pos.pos.x - boxbound.xmin) % simbox.x;
+            pos.pos.y = boxbound.ymin + (pos.pos.y - boxbound.ymin) % simbox.y;
+            pos.pos.z = boxbound.zmin + (pos.pos.z - boxbound.zmin) % simbox.z;
             old_force.0 = *force;
         }
     );
@@ -91,7 +105,7 @@ fn velocity_verlet_integrate_velocity (
     mut query: Query<(&mut Velocity, &Force, &OldForce, &Mass)>,
 ) {
     let dt = timestep.delta;
-
+    //println!("integration running!");
     query.par_for_each_mut (
         &pool,
         batch_size.0,
@@ -128,6 +142,7 @@ fn clear_force (
 
 #[derive(PartialEq, Clone, Hash, Debug, Eq, SystemLabel)]
 pub enum IntegrationSystems {
+    LJCalculation,
     VelocityVerletIntegratePosition,
     VelocityVerletIntegrateVelocity,
     AddOldForceToNewAtoms,
@@ -145,10 +160,11 @@ impl Plugin for IntegrationPlugin {
     fn build(&self, app: &mut App) {
         app.world.insert_resource(BatchSize::default());
         app.world.insert_resource(Step::default());
-        app.world.insert_resource(Timestep::default());
+        app.world.insert_resource(Timestep::new(1e-12));
 
         app.add_stage_before(CoreStage::Update, IntegrationStages::BeginIntegration, SystemStage::parallel());
         app.add_stage_after(CoreStage::Update, IntegrationStages::EndIntegration, SystemStage::parallel());
+        app.add_system_to_stage(IntegrationStages::BeginIntegration, lj_interaction::calc_lj_force.label(IntegrationSystems::LJCalculation));
         app.add_system_to_stage(IntegrationStages::BeginIntegration, 
             velocity_verlet_integrate_position.label(IntegrationSystems::VelocityVerletIntegratePosition));
         app.add_system_to_stage(IntegrationStages::BeginIntegration, 

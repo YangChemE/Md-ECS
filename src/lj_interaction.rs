@@ -11,7 +11,7 @@ pub struct LJCutOff {
 }
 
 
-fn calc_lj_force (
+pub fn calc_lj_force (
     pool: Res<ComputeTaskPool>,
     batch_size: Res<BatchSize>,
     timestep: ResMut<Timestep>,
@@ -20,6 +20,7 @@ fn calc_lj_force (
     mut query: Query<(&mut Force, &mut OldForce, &Position, &LJParams)>,
     //query_j: Query<(&Force, &OldForce, &Position, &LJParams)>
 ) {
+    //println!("force calculation!");
     const K: usize = 2;
     let mut particle_combos = query.iter_combinations_mut::<K>();
 

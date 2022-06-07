@@ -5,3 +5,4 @@ pub mod initiate;
 pub mod simbox;
 pub mod lj_interaction;
 pub mod output;
+pub mod bevy_bridge;
