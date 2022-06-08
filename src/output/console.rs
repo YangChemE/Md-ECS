@@ -13,9 +13,3 @@ pub fn console_output(
     }
 }
 
-pub struct OutputPlugin;
-impl Plugin for OutputPlugin {
-    fn build(&self, app: &mut App) {
-        
-    }
-}

@@ -28,6 +28,12 @@ pub struct BoxBound {
     pub zmax: f64,
 }
 
+impl Default for BoxBound {
+    fn default() -> Self {
+        Self { xmin: -5e-9, xmax: 5e9, ymin: -5e9, ymax: 5e9, zmin: -5e9, zmax: 5e9 }
+    }
+}
+
 impl BoxBound {
     pub fn new(xmin: f64, ymin: f64, zmin: f64, simbox: SimBox) -> Self {
         let xmax = xmin + simbox.x;
