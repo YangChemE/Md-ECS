@@ -17,7 +17,7 @@ fn setup_camera(
     mut commands: Commands
 ) {
     let mut camera = OrthographicCameraBundle::new_3d();
-    camera.orthographic_projection.scale = 1e-4;
+    camera.orthographic_projection.scale = 5e-5;
     camera.transform = Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y);
 
     commands.spawn_bundle(camera);
@@ -35,7 +35,7 @@ fn main() {
     println!("beginning");
 
 
-    let n_atoms: u64 = 100;
+    let n_atoms: u64 = 10;
 
     let delta = 2e-12;
     let n_steps: u64 = 1000;
@@ -85,7 +85,7 @@ fn main() {
     app.add_plugin(setup_plugin.clone());
     app.add_plugin(LJPlugin);
     app.add_plugin(IntegrationPlugin);
-    //app.add_plugin(OutputPlugin);
+    app.add_plugin(OutputPlugin);
 
     app.add_system(Md_ECS::bevy_bridge::copy_positions);
     // setup up the simulation, adds all the required parameters

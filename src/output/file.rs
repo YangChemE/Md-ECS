@@ -84,12 +84,12 @@ pub fn lammps_trj (
     interval: Res<OutInterval>,
     step: Res<Step>,
     bound: Res<BoxBound>,
-    query: Query<(&Position, &Velocity, &Mass)>,
+    query: Query<(&Position, &Velocity, &Mass, &AtomID)>,
 ) {
     let atom_number = query.iter().count();
     let box_bound = BoxBound {xmin: bound.xmin, xmax: bound.xmax, ymin: bound.ymin, ymax: bound.ymax, zmin: bound.zmin, zmax: bound.zmax};
 
-    for (pos, vel, mass) in query.iter() {
+    for (pos, vel, mass, atom_id) in query.iter() {
         if step.n == 1 {
             let path = format!("{}{}.trj", trj_name.name, interval.interval);
             let path = Path::new(&path);
@@ -101,12 +101,22 @@ pub fn lammps_trj (
             let mut writer = BufWriter::new(file);
             let header = FrameHeader {step: step.n, atom_number, box_bound};
             write_frame_header(&mut writer, header);
-            write_atom(&mut writer, atom_id, Compose(pos.clone(), vel.clone()));
+            write_atom(&mut writer, atom_id.id, Compose(pos.clone(), vel.clone()));
             
         }
     
         else if step.n % interval.interval == 0 {
-    
+            let path = format!("{}{}.trj", trj_name.name, interval.interval);
+            let path = Path::new(&path);
+            let display = path.display();
+            let file = match File::create(&path) {
+                Err(why) => panic!("couldn't open {}: {}", display, why.to_string()),
+                Ok(file) => file,
+            };
+            let mut writer = BufWriter::new(file);
+            let header = FrameHeader {step: step.n, atom_number, box_bound};
+            write_frame_header(&mut writer, header);
+            write_atom(&mut writer, atom_id.id, Compose(pos.clone(), vel.clone()));
         }
     }
     
@@ -143,7 +153,7 @@ fn write_frame_header<W: Write> (writer: &mut W, header: FrameHeader) -> Result<
 
 fn write_atom<W: Write, C: Display> (
     writer: &mut W,
-    atom_id: usize,
+    atom_id: u64,
     data: C,
 ) -> Result<(), io::Error> {
     writeln!(writer, "{:?} 1 {}", atom_id, data)?;

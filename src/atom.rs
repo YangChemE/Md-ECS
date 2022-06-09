@@ -4,7 +4,10 @@ use crate::{simbox::{SimBox, BoxBound}, integrator::OldForce};
 use std::fmt;
 use rand_distr::{Distribution, Normal, Uniform};
 
-
+#[derive(Clone, Component)]
+pub struct AtomID {
+    pub id: u64,
+}
 
 #[derive(Clone, Component)]
 pub struct Position {
@@ -112,7 +115,7 @@ pub fn create_atoms (
 
     let mut rng = rand::thread_rng();
 
-    for _ in 0..n_atoms.n_atoms {
+    for i in 0..n_atoms.n_atoms {
         commands.spawn()
             .insert(
                 Position {
@@ -123,6 +126,7 @@ pub fn create_atoms (
                     )
                 }
             )
+            .insert(AtomID {id: i+1})
             .insert(
                 Velocity {
                     vel: Vector3::new(
@@ -139,7 +143,7 @@ pub fn create_atoms (
             // for rendering purpose
             .insert_bundle(
                 PbrBundle{
-                    mesh: meshes.add(Mesh::from(shape::Icosphere {radius: 2e-6, subdivisions: 2})),
+                    mesh: meshes.add(Mesh::from(shape::Icosphere {radius: 1e-6, subdivisions: 2})),
                     material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
                     transform: Transform::from_xyz(1.5, 1.5, 1.5),
                     ..default()
