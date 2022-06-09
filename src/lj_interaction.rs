@@ -6,15 +6,28 @@ use bevy::prelude::*;
 use bevy::tasks::ComputeTaskPool;
 use nalgebra::Vector3;
 
+#[derive(Clone, Copy)]
 pub struct LJCutOff {
     pub rc: f64,
+}
+
+impl LJCutOff {
+    pub fn new(rc: f64) -> Self{
+        Self { rc }
+    }
+}
+
+impl Default for LJCutOff {
+    fn default() -> Self {
+        Self::new(1.2e-9)
+    }
 }
 
 
 pub fn calc_lj_force (
     pool: Res<ComputeTaskPool>,
     batch_size: Res<BatchSize>,
-    timestep: ResMut<Timestep>,
+    timestep: ResMut<TimeStep>,
     box_size: ResMut<SimBox>,
     cut_off: ResMut<LJCutOff>,
     mut query: Query<(&mut Force, &mut OldForce, &Position, &LJParams)>,
@@ -53,8 +66,8 @@ pub fn calc_lj_force (
             let lj_force_z = lj_ff * r1[2];
             
             // updating the old force for both particles
-            old_force1.0.force = force1.force;
-            old_force2.0.force = force2.force;
+            //old_force1.0.force = force1.force;
+            //old_force2.0.force = force2.force;
             // updating the force for both particles
             force1.force = force1.force + Vector3::new(lj_force_x, lj_force_y, lj_force_z);
             force2.force = force2.force - Vector3::new(lj_force_x, lj_force_y, lj_force_z);
@@ -62,10 +75,21 @@ pub fn calc_lj_force (
     }
 }
 
+#[derive(PartialEq, Clone, Hash, Debug, Eq, StageLabel)]
+pub enum ForceStages {
+    LJStage,
+}
+
+#[derive(PartialEq, Clone, Hash, Debug, Eq, SystemLabel)]
+pub enum ForceSystems {
+    LJSystem,
+}
+
 pub struct LJPlugin;
 impl Plugin for LJPlugin {
     fn build(&self, app: &mut App) {
-        
+        app.add_stage_before(CoreStage::Update, ForceStages::LJStage, SystemStage::parallel());
+        app.add_system_to_stage(ForceStages::LJStage, calc_lj_force.label(ForceSystems::LJSystem));
     }
 }
 /* 

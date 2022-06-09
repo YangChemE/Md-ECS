@@ -10,9 +10,30 @@ use std::io::{self, BufWriter};
 /// the lammps like trajectry file that can be read by ovito.
 use crate::atom::*;
 use crate::simbox::{SimBox, BoxBound};
-use crate::integrator::{Step, Timestep};
+use crate::integrator::{Step, TimeStep, IntegrationStages};
 use bevy::prelude::*;
 
+
+pub trait Composable: Clone + Send + Sync + 'static {}
+
+#[derive(Debug, Clone)]
+pub struct Compose<L, R>(L, R);
+
+impl Composable for Position {}
+impl Composable for Velocity {}
+
+impl fmt::Display for Compose<Position, Velocity> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Compose(pos, vel) = self;
+        write!(f, "{:?} {:?} {:?} ", pos.pos.x, pos.pos.y, pos.pos.z)?;
+
+        let (vx, vy, vz) = (vel.vel.x, vel.vel.y, vel.vel.z);
+        write!(f, "{:?} {:?} {:?} ", vx, vy, vz)
+    }
+}
+
+
+#[derive(Clone)]
 pub struct TrjName {
     pub name: String,
 }
@@ -33,6 +54,7 @@ impl Default for TrjName {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct OutInterval {
     pub interval: u64,
 }
@@ -44,8 +66,8 @@ impl OutInterval {
 }
 
 impl OutInterval {
-    fn default() -> Self {
-        Self { interval: 100 }
+    pub fn default() -> Self {
+        Self::new(100)
     }
 }
 
@@ -66,24 +88,28 @@ pub fn lammps_trj (
 ) {
     let atom_number = query.iter().count();
     let box_bound = BoxBound {xmin: bound.xmin, xmax: bound.xmax, ymin: bound.ymin, ymax: bound.ymax, zmin: bound.zmin, zmax: bound.zmax};
-    if step.n == 1 {
-        let path = format!("{}{}.trj", trj_name.name, interval.interval);
-        let path = Path::new(&path);
-        let display = path.display();
-        let file = match File::create(&path) {
-            Err(why) => panic!("couldn't open {}: {}", display, why.to_string()),
-            Ok(file) => file,
-        };
-        let mut writer = BufWriter::new(file);
-        let header = FrameHeader {step: step.n, atom_number, box_bound};
-        write_frame_header(&mut writer, header);
 
-        
+    for (pos, vel, mass) in query.iter() {
+        if step.n == 1 {
+            let path = format!("{}{}.trj", trj_name.name, interval.interval);
+            let path = Path::new(&path);
+            let display = path.display();
+            let file = match File::create(&path) {
+                Err(why) => panic!("couldn't open {}: {}", display, why.to_string()),
+                Ok(file) => file,
+            };
+            let mut writer = BufWriter::new(file);
+            let header = FrameHeader {step: step.n, atom_number, box_bound};
+            write_frame_header(&mut writer, header);
+            write_atom(&mut writer, atom_id, Compose(pos.clone(), vel.clone()));
+            
+        }
+    
+        else if step.n % interval.interval == 0 {
+    
+        }
     }
-
-    else if step.n % interval.interval == 0 {
-
-    }
+    
 }
 
 fn write_frame_header<W: Write> (writer: &mut W, header: FrameHeader) -> Result<(), io::Error> {
@@ -108,7 +134,7 @@ fn write_frame_header<W: Write> (writer: &mut W, header: FrameHeader) -> Result<
     // ITEM: ATOMS id type x y z vx vy vz speed speed2d temp
     writeln!(
         writer,
-        "ITEM: ATOMS id type x y z vx vy vz speed speed2d temp"
+        "ITEM: ATOMS id type x y z vx vy vz"
     )?;
     Ok(())
 
@@ -124,10 +150,20 @@ fn write_atom<W: Write, C: Display> (
     Ok(())
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum OutputStages {
+    FileOutput,
+}
+
+#[derive(PartialEq, Clone, Hash, Debug, Eq, SystemLabel)]
+pub enum OutputSystems {
+    OvitoTrj,
+}
 
 pub struct OutputPlugin;
 impl Plugin for OutputPlugin {
     fn build(&self, app: &mut App) {
-        
+        app.add_stage_after(IntegrationStages::EndIntegration, OutputStages::FileOutput, SystemStage::parallel());
+        app.add_system_to_stage(OutputStages::FileOutput, lammps_trj.label(OutputSystems::OvitoTrj));
     }
 }

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::atom::*;
-use crate::integrator::{Step, Timestep};
+use crate::integrator::{Step, TimeStep};
 
 
 pub fn console_output(

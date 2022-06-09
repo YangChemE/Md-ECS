@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use nalgebra::{Vector3};
 
+#[derive(Debug, Clone, Copy)]
 pub struct SimBox {
     pub x: f64,
     pub y: f64,
@@ -17,8 +18,14 @@ impl SimBox {
     }
 }
 
+impl Default for SimBox {
+    fn default() -> Self {
+        Self::new(1e8, 1e8, 1e8)
+    }
+}
 
-#[derive(Debug)]
+
+#[derive(Debug, Clone, Copy)]
 pub struct BoxBound {
     pub xmin: f64,
     pub xmax: f64,
@@ -28,11 +35,7 @@ pub struct BoxBound {
     pub zmax: f64,
 }
 
-impl Default for BoxBound {
-    fn default() -> Self {
-        Self { xmin: -5e-9, xmax: 5e9, ymin: -5e9, ymax: 5e9, zmin: -5e9, zmax: 5e9 }
-    }
-}
+
 
 impl BoxBound {
     pub fn new(xmin: f64, ymin: f64, zmin: f64, simbox: SimBox) -> Self {
@@ -47,5 +50,17 @@ impl BoxBound {
             zmin,
             zmax,
         }
+    }
+}
+
+impl Default for BoxBound {
+    fn default() -> Self {
+        let default_box_size = SimBox::default();
+        Self::new(
+            -default_box_size.x/2.0,
+            -default_box_size.y/2.0,
+            -default_box_size.z/2.0,
+            default_box_size,
+        )
     }
 }
