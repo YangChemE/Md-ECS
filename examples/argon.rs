@@ -35,16 +35,16 @@ fn main() {
     println!("beginning");
 
 
-    let n_atoms: u64 = 10;
+    let n_atoms: u64 = 100;
 
-    let delta = 2e-12;
-    let n_steps: u64 = 1000;
-    let batch: usize = 100;
+    let delta = 2e-12; //2 fs
+    let n_steps: u64 = 50; // 1 ns
+    let batch: usize = 50;
 
-    let box_len = 1e-8;
+    let box_len = 5e-9; // 5 nm
     let origin = Vector3::new(0.0, 0.0, 0.0);
 
-    let cutoff = 1.2e-9;
+    let cutoff = 4.2e-9;
     let output_freq = 10;
 
 
@@ -74,21 +74,23 @@ fn main() {
 
         lj_cutoff: LJCutOff::new(cutoff),
 
+        cur_step: CurStep::init(),
         trj_name:  TrjName::new(String::from("argon")),
         output_interval: OutInterval::new(output_freq),
 
     };
 
     app.add_plugins(DefaultPlugins);
-    app.add_startup_system(create_atoms);
+    app.add_startup_system(create_atoms.label(SetupSystems::CreateAtoms));
     app.add_startup_system(setup_camera);
     app.add_plugin(setup_plugin.clone());
     app.add_plugin(LJPlugin);
     app.add_plugin(IntegrationPlugin);
     app.add_plugin(OutputPlugin);
 
+    // needs to figure out the purpose of this
     app.add_system(Md_ECS::bevy_bridge::copy_positions);
-    // setup up the simulation, adds all the required parameters
+
   
 
 
@@ -100,19 +102,11 @@ fn main() {
 
     app.world.insert_resource(SimBox {x: 1e-8, y: 1e-8, z: 1e-8});
 
-    app.world.insert_resource(BoxBound::new(0.0, 0.0, 0.0, SimBox {x: 1e-8, y: 1e-8, z: 1e-8}));
     println!("done setup");
     // run the simulation
     for _i in 0..n_steps {
         println!("step {}.", _i);
         app.update();
-        // calculate forces
-
-        // integration equation of motion (update position and velocity)
-
-        // update time
-
-        // calculate interested quantities (sample average)
     }
 
 }

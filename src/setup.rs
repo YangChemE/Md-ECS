@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use crate::{
     atom::{AtomNumber, AtomType, Atom},
-    integrator::{TimeStep, Step, BatchSize},
+    integrator::{TimeStep, Step, BatchSize, CurStep},
     simbox::{SimBox, BoxBound},
     lj_interaction::LJCutOff,
     output::file::{TrjName, OutInterval},
@@ -48,6 +48,7 @@ pub struct SetupPlugin {
     pub lj_cutoff: LJCutOff,
 
     // output parameters
+    pub cur_step: CurStep,
     pub trj_name: TrjName,
     pub output_interval: OutInterval,
 }
@@ -67,6 +68,7 @@ impl Default for SetupPlugin {
 
             lj_cutoff: LJCutOff::default(), 
 
+            cur_step: CurStep::init(),
             trj_name: TrjName::default(), 
             output_interval: OutInterval::default()
         }
@@ -92,6 +94,7 @@ impl Plugin for SetupPlugin {
         app.world.insert_resource(self.lj_cutoff);
 
         // add output paramters
+        app.world.insert_resource(self.cur_step);
         app.world.insert_resource(self.output_interval);
         app.world.insert_resource(self.trj_name.clone());
     
@@ -120,4 +123,10 @@ pub mod tests {
         //assert!(!app.world.entity(test_entity).contains::<NewlyCreated>());
         assert!(app.world.contains_resource::<Step>());
     }
+}
+
+
+#[derive(PartialEq, Clone, Hash, Debug, Eq, SystemLabel)]
+pub enum SetupSystems {
+    CreateAtoms,
 }

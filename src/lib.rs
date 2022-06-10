@@ -6,3 +6,4 @@ pub mod simbox;
 pub mod lj_interaction;
 pub mod output;
 pub mod bevy_bridge;
+pub mod lj_params;

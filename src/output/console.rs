@@ -1,15 +1,17 @@
 use bevy::prelude::*;
 use crate::atom::*;
-use crate::integrator::{Step, TimeStep};
-
+use crate::integrator::{CurStep};
+use crate::simbox::BoxBound;
 
 pub fn console_output(
-    step: Res<Step>,
+    cur_step: Res<CurStep>,
     query: Query<&Atom>,
+    boxbound: Res<BoxBound>,
 ) {
-    if step.n % 100 == 0 {
+    if cur_step.n % 10 == 0 {
         let atom_number = query.iter().count();
-        println!("Step {}: simulating {} atoms.", step.n, atom_number)
+
+        println!("box position {}, {}, {}.", boxbound.xmax, boxbound.ymax, boxbound.zmax);
     }
 }
 

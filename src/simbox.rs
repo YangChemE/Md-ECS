@@ -20,7 +20,7 @@ impl SimBox {
 
 impl Default for SimBox {
     fn default() -> Self {
-        Self::new(1e8, 1e8, 1e8)
+        Self::new(1e-8, 1e-8, 1e-8)
     }
 }
 

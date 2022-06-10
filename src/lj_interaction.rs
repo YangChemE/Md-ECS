@@ -30,15 +30,18 @@ pub fn calc_lj_force (
     timestep: ResMut<TimeStep>,
     box_size: ResMut<SimBox>,
     cut_off: ResMut<LJCutOff>,
-    mut query: Query<(&mut Force, &mut OldForce, &Position, &LJParams)>,
+    mut query: Query<(&mut Force, &mut OldForce, &Position, &AtomType)>,
     //query_j: Query<(&Force, &OldForce, &Position, &LJParams)>
 ) {
-    //println!("force calculation!");
+    
     const K: usize = 2;
     let mut particle_combos = query.iter_combinations_mut::<K>();
 
-    while let Some([(mut force1, mut old_force1, pos1, lj_params1), (mut force2, mut old_force2, pos2, lj_params2)]) 
+    while let Some([(mut force1, mut old_force1, pos1, atom1), (mut force2, mut old_force2, pos2, atom2)]) 
     = particle_combos.fetch_next() {
+        //println!("force calculation!");
+        let lj_params1 = atom1.lj_params;
+        let lj_params2 = atom2.lj_params;
         // here we have a pair of atoms in the system labeled as 1 and 2 for calculating the interaction between them.
         // since the iter_combo methods returns a combinations of targeted entity withou repeatation 
         // we can calculate the force asserted on each atom of the combo and update the said force.
@@ -71,6 +74,7 @@ pub fn calc_lj_force (
             // updating the force for both particles
             force1.force = force1.force + Vector3::new(lj_force_x, lj_force_y, lj_force_z);
             force2.force = force2.force - Vector3::new(lj_force_x, lj_force_y, lj_force_z);
+            //println!("{}, {}, {}", force1.force.x, force1.force.y, force1.force.z);
         }
     }
 }

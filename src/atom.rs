@@ -69,6 +69,14 @@ pub struct Mass {
 pub struct AtomType {
     /// the name of the atom
     pub name: String,
+    pub lj_params: LJParams,
+}
+
+impl AtomType { 
+    pub fn new(atom_name: String, sigma: f64, epsilon: f64) -> Self {
+        let lj_params = LJParams::new(sigma, epsilon);
+        Self { name: String::from(atom_name), lj_params}
+    }
 }
 
 
@@ -92,11 +100,18 @@ impl Default for AtomNumber {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct LJParams {
     pub sigma: f64,
     pub epsilon: f64,
 }
+
+impl LJParams {
+    pub fn new (sigma: f64, epsilon: f64) -> Self {
+        Self { sigma, epsilon}
+    }
+}
+
 
 pub fn create_atoms (
     mut commands: Commands,
@@ -109,9 +124,9 @@ pub fn create_atoms (
     // the default value, and we assume the velocity to be isotropic
     let v_dist = Normal::new(460.0, 50.0).unwrap();
 
-    let x_dist = Uniform::new(box_bound.xmin, box_bound.xmax);
-    let y_dist = Uniform::new(box_bound.ymin, box_bound.ymax);
-    let z_dist = Uniform::new(box_bound.zmin, box_bound.zmax);
+    let x_dist = Uniform::from(box_bound.xmin..box_bound.xmax);
+    let y_dist = Uniform::from(box_bound.ymin..box_bound.ymax);
+    let z_dist = Uniform::from(box_bound.zmin..box_bound.zmax);
 
     let mut rng = rand::thread_rng();
 
@@ -140,12 +155,14 @@ pub fn create_atoms (
             .insert(OldForce(Force::default()))
             .insert(Mass {value: 39.948*crate::constant::AMU})
             .insert(Atom)
+            // to be fixed, now the lj parameters are hard coded.
+            .insert(AtomType::new(String::from("Argon"), 3.4e-10, 1.654e-21))
             // for rendering purpose
             .insert_bundle(
                 PbrBundle{
                     mesh: meshes.add(Mesh::from(shape::Icosphere {radius: 1e-6, subdivisions: 2})),
                     material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
-                    transform: Transform::from_xyz(1.5, 1.5, 1.5),
+                    //transform: Transform::from_xyz(1.5, 1.5, 1.5),
                     ..default()
                 }
             );

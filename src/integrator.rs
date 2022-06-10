@@ -1,12 +1,24 @@
 use crate::atom::*;
 use crate::constant;
-use crate::lj_interaction;
 use crate::simbox::*;
-use crate::lj_interaction::*;
 use bevy::prelude::*;
 use bevy::tasks::ComputeTaskPool;
 use nalgebra::Vector3;
 use crate::setup::NewlyCreated;
+
+
+#[derive(Clone, Copy)]
+pub struct CurStep {
+    pub n: u64,
+}
+
+impl CurStep {
+    pub fn init() -> Self {
+        Self {n: 0}
+    }
+}
+
+
 
 #[derive(Clone, Copy)]
 pub struct Step {
@@ -89,25 +101,40 @@ fn velocity_verlet_integrate_position (
     pool: Res<ComputeTaskPool>,
     batch_size: Res<BatchSize>,
     timestep: ResMut<TimeStep>,
-    mut step: ResMut<Step>,
     boxbound: Res<BoxBound>,
     simbox: Res<SimBox>,
     mut query: Query<(&mut Position, &mut OldForce, &Velocity, &Force, &Mass)>,
 ) {
-    step.n += 1;
     let dt = timestep.delta;
-
     query.par_for_each_mut(
         &pool,
         batch_size.0,
         |(mut pos, mut old_force, vel, force, mass)|{
             pos.pos = pos.pos + vel.vel * dt + force.force/(constant::AMU*mass.value) / 2.0 * dt * dt;
-            pos.pos.x = boxbound.xmin + (pos.pos.x - boxbound.xmin) % simbox.x;
-            pos.pos.y = boxbound.ymin + (pos.pos.y - boxbound.ymin) % simbox.y;
-            pos.pos.z = boxbound.zmin + (pos.pos.z - boxbound.zmin) % simbox.z;
-            old_force.0 = *force;
+
+            // to deal with the pbc
+            //pos.pos.x = boxbound.xmin + (pos.pos.x - boxbound.xmin) % simbox.x;
+            //pos.pos.y = boxbound.ymin + (pos.pos.y - boxbound.ymin) % simbox.y;
+            //pos.pos.z = boxbound.zmin + (pos.pos.z - boxbound.zmin) % simbox.z;
+
+            pos.pos.x = pbc(pos.pos.x, boxbound.xmin, boxbound.xmax, simbox.x);
+            pos.pos.y = pbc(pos.pos.y, boxbound.ymin, boxbound.ymax, simbox.y);
+            pos.pos.z = pbc(pos.pos.z, boxbound.zmin, boxbound.zmax, simbox.z);
         }
     );
+}
+
+fn pbc (coord: f64, min: f64, max: f64, range:f64) -> f64 {
+    let mut new_coord = 0.0;
+    if coord < 0.0 {
+        let _coord = -coord;
+        new_coord = max - (_coord % range);
+    }
+    else {
+        new_coord = coord % range;
+    }
+
+    new_coord
 }
 
 pub const INTEGRATE_VELOCITY_SYSTEM_NAME: &str = "integrate_velocity";
@@ -116,6 +143,7 @@ fn velocity_verlet_integrate_velocity (
     pool: Res<ComputeTaskPool>,
     batch_size: Res<BatchSize>,
     timestep: Res<TimeStep>,
+    mut cur_step: ResMut<CurStep>,
     mut query: Query<(&mut Velocity, &Force, &OldForce, &Mass)>,
 ) {
     let dt = timestep.delta;
@@ -127,6 +155,7 @@ fn velocity_verlet_integrate_velocity (
             vel.vel += (force.force + old_force.0.force) / (constant::AMU * mass.value) / 2.0 * dt;
         }    
     );
+    cur_step.n += 1;
 }
 
 fn add_old_force_to_new_atoms(
