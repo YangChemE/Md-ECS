@@ -4,7 +4,7 @@ use crate::simbox::*;
 use bevy::prelude::*;
 use bevy::tasks::ComputeTaskPool;
 use nalgebra::Vector3;
-use crate::setup::NewlyCreated;
+
 
 
 #[derive(Clone, Copy)]
@@ -76,62 +76,43 @@ impl Default for BatchSize {
 }
 
 
-fn integrate_equation_of_motion (
-    pool: Res<ComputeTaskPool>,
-    batch_size: Res<BatchSize>,
-    timestep: ResMut<TimeStep>,
-    mut step: ResMut<Step>,
-    mut query: Query<(&mut Position, &mut Velocity, &mut OldForce, &Force, &Mass)>,
-) {
-    let dt = timestep.delta;
-    query.par_for_each_mut(
-        &pool,
-        batch_size.0,
-        |(mut pos, mut vel, mut old_force, force, mass)| {
-            vel.vel += (force.force + old_force.0.force) / (constant::AMU* mass.value) /2.0 * dt;
-            pos.pos = pos.pos + vel.vel * dt + force.force / (constant::AMU*mass.value) / 2.0 *dt *dt;
-            old_force.0 = *force;
-            
-        }
-    )
-}
-
 
 fn velocity_verlet_integrate_position (
     pool: Res<ComputeTaskPool>,
     batch_size: Res<BatchSize>,
     timestep: ResMut<TimeStep>,
-    boxbound: Res<BoxBound>,
     simbox: Res<SimBox>,
-    mut query: Query<(&mut Position, &mut OldForce, &Velocity, &Force, &Mass)>,
+    mut query: Query<(&mut Position, &Velocity, &Force, &Mass)>,
 ) {
+
     let dt = timestep.delta;
     query.par_for_each_mut(
         &pool,
         batch_size.0,
-        |(mut pos, mut old_force, vel, force, mass)|{
+        |(mut pos, vel, force, mass)|{
             pos.pos = pos.pos + vel.vel * dt + force.force/(constant::AMU*mass.value) / 2.0 * dt * dt;
 
             // to deal with the pbc
-            //pos.pos.x = boxbound.xmin + (pos.pos.x - boxbound.xmin) % simbox.x;
-            //pos.pos.y = boxbound.ymin + (pos.pos.y - boxbound.ymin) % simbox.y;
-            //pos.pos.z = boxbound.zmin + (pos.pos.z - boxbound.zmin) % simbox.z;
+            pos.pos.x = pbc(pos.pos.x, simbox.origin.x, simbox.dimension.x);
+            pos.pos.y = pbc(pos.pos.y, simbox.origin.y, simbox.dimension.y);
+            pos.pos.z = pbc(pos.pos.z, simbox.origin.z, simbox.dimension.z);
 
-            pos.pos.x = pbc(pos.pos.x, boxbound.xmin, boxbound.xmax, simbox.x);
-            pos.pos.y = pbc(pos.pos.y, boxbound.ymin, boxbound.ymax, simbox.y);
-            pos.pos.z = pbc(pos.pos.z, boxbound.zmin, boxbound.zmax, simbox.z);
         }
     );
 }
 
-fn pbc (coord: f64, min: f64, max: f64, range:f64) -> f64 {
+
+
+fn pbc (coord: f64, min: f64, range:f64) -> f64 {
+    let max = min + range;
+    let _coord = coord - min;
     let mut new_coord = 0.0;
-    if coord < 0.0 {
-        let _coord = -coord;
-        new_coord = max - (_coord % range);
+    if _coord < 0.0 {
+
+        new_coord = max - (-_coord % range);
     }
     else {
-        new_coord = coord % range;
+        new_coord = min +  (_coord % range);
     }
 
     new_coord
@@ -158,14 +139,6 @@ fn velocity_verlet_integrate_velocity (
     cur_step.n += 1;
 }
 
-fn add_old_force_to_new_atoms(
-    mut commands: Commands,
-    query: Query<Entity, (With<NewlyCreated>, Without<OldForce>)>
-) {
-    for ent in query.iter() {
-        commands.entity(ent).insert(OldForce::default());
-    }
-}
 
 
 fn clear_force (
@@ -220,25 +193,8 @@ impl Plugin for IntegrationPlugin {
 
         // This is only useful when we need to add atoms during the simulation,
         // which we are not implementing yet.
-        app.add_system_to_stage(IntegrationStages::BeginIntegration, 
-            add_old_force_to_new_atoms.label(IntegrationSystems::AddOldForceToNewAtoms));
+        //app.add_system_to_stage(IntegrationStages::BeginIntegration, 
+        //    add_old_force_to_new_atoms.label(IntegrationSystems::AddOldForceToNewAtoms));
     }
 }
 
-pub mod tests {
-    #[allow(unused_imports)]
-    use super::*;
-
-    #[test]
-    fn test_add_old_force_system() {
-        let mut app = App::new();
-        app.add_plugin(IntegrationPlugin);
-
-        let test_entity = app.world.spawn().insert(NewlyCreated).id();
-        app.update();
-        assert!(
-            app.world.entity(test_entity).contains::<OldForce>(),
-            "OldForce component not added to test entity."
-        );
-    }
-}

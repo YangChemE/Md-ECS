@@ -1,9 +1,11 @@
 pub mod atom;
 pub mod constant;
-pub mod integrator;
 pub mod setup;
 pub mod simbox;
-pub mod lj_interaction;
 pub mod output;
 pub mod bevy_bridge;
 pub mod lj_params;
+pub mod physical_quant_calc;
+pub mod molecular_dynamics;
+pub mod monte_carlo;
+pub mod energy_minimization;

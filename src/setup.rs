@@ -1,29 +1,15 @@
 use bevy::prelude::*;
 use crate::{
-    atom::{AtomNumber, AtomType, Atom},
-    integrator::{TimeStep, Step, BatchSize, CurStep},
-    simbox::{SimBox, BoxBound},
-    lj_interaction::LJCutOff,
+    atom::AtomNumber,
+    molecular_dynamics::{
+        integration::{TimeStep, Step, BatchSize, CurStep},
+        lj_interaction::LJCutOff
+    },
+    simbox::{SimBox},
     output::file::{TrjName, OutInterval},
 };
+use nalgebra::{Vector3};
 
-
-#[derive(Component, Default)]
-pub struct NewlyCreated;
-
-fn deflag_new_atoms(
-    mut commands: Commands, 
-    query: Query<Entity, With<NewlyCreated>>
-) {
-    for ent in query.iter() {
-        commands.entity(ent).remove::<NewlyCreated>();
-    }
-}
-
-#[derive(PartialEq, Clone, Hash, Debug, Eq, SystemLabel)]
-pub enum InitiateSystems {
-    DeflagNewAtoms
-}
 
 
 
@@ -42,7 +28,6 @@ pub struct SetupPlugin {
 
     // simulation box parameters
     pub box_size: SimBox,
-    pub box_bound: BoxBound,
 
     // force evaluation parameters
     pub lj_cutoff: LJCutOff,
@@ -53,7 +38,45 @@ pub struct SetupPlugin {
     pub output_interval: OutInterval,
 }
 
+impl SetupPlugin {
+    pub fn new(
+        n_atoms: u64,
+        delta: f64,
+        n_steps: u64,
+        batch: usize,
 
+        box_length: Vector3<f64>,
+        origin: Vector3<f64>,
+
+        cutoff: f64,
+
+        trjname: String,
+        interval: u64,
+    ) -> Self {
+        let atom_number = AtomNumber::new(n_atoms);
+        let time_step = TimeStep::new(delta);
+        let number_steps = Step::new(n_steps);
+        let batch_size = BatchSize::new(batch);
+        let box_size = SimBox::new(origin, box_length.x, box_length.y, box_length.z);
+        let lj_cutoff = LJCutOff::new(cutoff);
+        let cur_step = CurStep::init();
+        let trj_name = TrjName::new(trjname);
+        let output_interval = OutInterval::new(interval);
+
+        Self {
+            atom_number,
+            time_step,
+            number_steps,
+            batch_size,
+            box_size,
+
+            lj_cutoff,
+            cur_step,
+            trj_name,
+            output_interval
+        }
+    }
+}
 impl Default for SetupPlugin {
     fn default() -> Self {
         Self { 
@@ -64,7 +87,6 @@ impl Default for SetupPlugin {
             batch_size: default(), 
 
             box_size: SimBox::default(), 
-            box_bound: BoxBound::default(), 
 
             lj_cutoff: LJCutOff::default(), 
 
@@ -74,6 +96,8 @@ impl Default for SetupPlugin {
         }
     }
 }
+
+
 
 
 impl Plugin for SetupPlugin {
@@ -88,7 +112,6 @@ impl Plugin for SetupPlugin {
 
         // add simulation box parameters
         app.world.insert_resource(self.box_size);
-        app.world.insert_resource(self.box_bound);
 
         // add lennard jones parameters
         app.world.insert_resource(self.lj_cutoff);
@@ -100,11 +123,8 @@ impl Plugin for SetupPlugin {
     
         //app.add_system_to_stage(CoreStage::Update, deflag_new_atoms.label(InitiateSystems::DeflagNewAtoms));
     }
-
-    fn name(&self) -> &str {
-        std::any::type_name::<Self>()
-    }
 }
+
 
 
 
@@ -112,15 +132,12 @@ pub mod tests {
     #[allow(unused_imports)]
     use super::*;
 
-    // testing the 
     #[test]
     fn test_setup_plugin() {
         let mut app = App::new();
         let setup_plugin = SetupPlugin::default();
         app.add_plugin(setup_plugin);
-        let test_entity = app.world.spawn().insert(NewlyCreated).id();
         app.update();
-        //assert!(!app.world.entity(test_entity).contains::<NewlyCreated>());
         assert!(app.world.contains_resource::<Step>());
     }
 }

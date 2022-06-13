@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use nalgebra::{Vector3};
-use crate::{simbox::{SimBox, BoxBound}, integrator::OldForce};
+use crate::{simbox::{SimBox}, molecular_dynamics::integration::OldForce};
 use std::fmt;
 use rand_distr::{Distribution, Normal, Uniform};
 
@@ -118,15 +118,15 @@ pub fn create_atoms (
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     n_atoms: Res<AtomNumber>,
-    box_bound: Res<BoxBound>,
+    simbox: Res<SimBox>,
 ) {
     // we use the approximate gas molecule velocity in room temperature as
     // the default value, and we assume the velocity to be isotropic
-    let v_dist = Normal::new(460.0, 50.0).unwrap();
+    let v_dist = Normal::new(0.0, 460.0).unwrap();
 
-    let x_dist = Uniform::from(box_bound.xmin..box_bound.xmax);
-    let y_dist = Uniform::from(box_bound.ymin..box_bound.ymax);
-    let z_dist = Uniform::from(box_bound.zmin..box_bound.zmax);
+    let x_dist = Uniform::new(simbox.origin.x, simbox.origin.x + simbox.dimension.x);
+    let y_dist = Uniform::new(simbox.origin.y, simbox.origin.y + simbox.dimension.y);
+    let z_dist = Uniform::new(simbox.origin.z, simbox.origin.z + simbox.dimension.z);
 
     let mut rng = rand::thread_rng();
 
@@ -160,7 +160,7 @@ pub fn create_atoms (
             // for rendering purpose
             .insert_bundle(
                 PbrBundle{
-                    mesh: meshes.add(Mesh::from(shape::Icosphere {radius: 1e-6, subdivisions: 2})),
+                    mesh: meshes.add(Mesh::from(shape::Icosphere {radius: 5e-7, subdivisions: 2})),
                     material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
                     //transform: Transform::from_xyz(1.5, 1.5, 1.5),
                     ..default()
@@ -169,4 +169,5 @@ pub fn create_atoms (
     }
 }
 
+// consider adding a macro (or closure?, whatever works) to enable adding the LJ parameterse etc to the system by user. 
 //fn create_atoms_system () -> Fn()

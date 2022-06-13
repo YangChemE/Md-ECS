@@ -3,14 +3,13 @@ use std::fmt::{self, Display};
 use std::fs::File;
 use std::io::Write;
 use std::io::{self, BufWriter};
-
+use nalgebra::Vector3;
 
 /// this file is for defnining the function for outputing
 /// the lammps like trajectry file that can be read by ovito.
 use crate::atom::*;
-
-use crate::simbox::{BoxBound};
-use crate::integrator::{OldForce, CurStep, IntegrationStages, IntegrationSystems};
+use crate::simbox::SimBox;
+use crate::molecular_dynamics::integration::{OldForce, CurStep, IntegrationStages, IntegrationSystems};
 use bevy::prelude::*;
 
 
@@ -85,7 +84,8 @@ impl OutInterval {
 pub struct FrameHeader {
     cur_step: u64,
     atom_number: usize,
-    box_bound: BoxBound,
+    origin: Vector3<f64>,
+    dimension: Vector3<f64>
 }
 
 
@@ -94,11 +94,12 @@ pub fn lammps_trj (
     trj_name: Res<TrjName>,
     interval: Res<OutInterval>,
     cur_step: Res<CurStep>,
-    bound: Res<BoxBound>,
+    simbox: Res<SimBox>,
     query: Query<(&Position, &Velocity, &OldForce, &Mass, &AtomID)>,
 ) {
     let atom_number = query.iter().count();
-    let box_bound = BoxBound {xmin: bound.xmin, xmax: bound.xmax, ymin: bound.ymin, ymax: bound.ymax, zmin: bound.zmin, zmax: bound.zmax};
+    let origin = simbox.origin;
+    let dimension = simbox.dimension;
 
     if cur_step.n % interval.interval == 0{
         let filename = format!("{}_{}.trj", trj_name.name, cur_step.n);
@@ -109,7 +110,7 @@ pub fn lammps_trj (
              Ok(file) => file,
         };
         let mut writer = BufWriter::new(file);
-        let header = FrameHeader {cur_step: cur_step.n, atom_number, box_bound};
+        let header = FrameHeader {cur_step: cur_step.n, atom_number, origin, dimension};
         write_frame_header(&mut writer, header);
 
         for (pos, vel, old_force, mass, atom_id) in query.iter() {
@@ -122,11 +123,13 @@ pub fn lammps_trj (
 pub fn first_trj (
     trj_name: Res<TrjName>,
     cur_step: Res<CurStep>,
-    bound: Res<BoxBound>,
+    simbox: Res<SimBox>,
     query: Query<(&Position, &Velocity, &OldForce, &Mass, &AtomID)>,
 ) {
     let atom_number = query.iter().count();
-    let box_bound = BoxBound {xmin: bound.xmin, xmax: bound.xmax, ymin: bound.ymin, ymax: bound.ymax, zmin: bound.zmin, zmax: bound.zmax};
+    let origin = simbox.origin;
+    let dimension = simbox.dimension;    
+
 
     if cur_step.n == 0 {
         let filename = format!("{}_{}.trj", trj_name.name, cur_step.n);
@@ -137,7 +140,7 @@ pub fn first_trj (
              Ok(file) => file,
         };
         let mut writer = BufWriter::new(file);
-        let header = FrameHeader {cur_step: cur_step.n, atom_number, box_bound};
+        let header = FrameHeader {cur_step: cur_step.n, atom_number, origin, dimension};
         write_frame_header(&mut writer, header);
 
         for (pos, vel, old_force, mass, atom_id) in query.iter() {
@@ -160,11 +163,11 @@ fn write_frame_header<W: Write> (writer: &mut W, header: FrameHeader) -> Result<
     writeln!(writer, "ITEM: BOX BOUNDS pp pp pp")?;
 
     // -X X
-    writeln!(writer, "{} {}", header.box_bound.xmin, header.box_bound.xmax)?;
+    writeln!(writer, "{} {}", header.origin.x, header.origin.x + header.dimension.x)?;
     // -Y Y
-    writeln!(writer, "{} {}", header.box_bound.ymin, header.box_bound.ymax)?;
+    writeln!(writer, "{} {}", header.origin.y, header.origin.y + header.dimension.y)?;
     // -Z Z
-    writeln!(writer, "{} {}", header.box_bound.zmin, header.box_bound.zmax)?;
+    writeln!(writer, "{} {}", header.origin.z, header.origin.z + header.dimension.z)?;
 
     // ITEM: ATOMS id type x y z vx vy vz speed speed2d temp
     writeln!(

@@ -1,7 +1,7 @@
 use crate::atom::*;
 use crate::constant;
 use crate::simbox::*;
-use crate::integrator::*;
+use crate::molecular_dynamics::integration::*;
 use bevy::prelude::*;
 use bevy::tasks::ComputeTaskPool;
 use nalgebra::Vector3;
@@ -49,9 +49,9 @@ pub fn calc_lj_force (
         // f = dV/dr = 
         let mut r1 = pos1.pos - pos2.pos; // use the first atom as reference
         // the pbc treatment
-        r1[0] = r1[0] - box_size.x * (r1[0]/box_size.x).round(); 
-        r1[1] = r1[1] - box_size.y * (r1[1]/box_size.y).round();
-        r1[2] = r1[2] - box_size.z * (r1[2]/box_size.z).round();
+        r1[0] = r1[0] - box_size.dimension.x * (r1[0]/box_size.dimension.x).round(); 
+        r1[1] = r1[1] - box_size.dimension.y * (r1[1]/box_size.dimension.y).round();
+        r1[2] = r1[2] - box_size.dimension.z * (r1[2]/box_size.dimension.z).round();
 
         let r_square = r1.norm_squared();
         

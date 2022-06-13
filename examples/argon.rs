@@ -1,16 +1,12 @@
-use bevy::{ prelude::*, tasks::ComputeTaskPool };
+use bevy::prelude::*;
 use Md_ECS::{
     atom::*,
-    simbox::{SimBox, BoxBound}, 
-    lj_interaction::*, 
+    molecular_dynamics::{lj_interaction::*, integration::*},
     setup::*, 
     output::{console::*, file::*},  
-    integrator::*
 };
 
-use rand_distr::{Distribution, Normal, Uniform};
-use Md_ECS::atom::{Atom, Force, Mass, Position, Velocity, create_atoms};
-use nalgebra::{Vector3};
+use nalgebra::Vector3;
 
 
 fn setup_camera(
@@ -34,56 +30,59 @@ fn main() {
 
     println!("beginning");
 
+    /* SIMULATION PARAMETERS */
+    // atom info 
+    let n_atoms: u64 = 1000;
 
-    let n_atoms: u64 = 100;
-
+    // integration parameters
     let delta = 2e-12; //2 fs
     let n_steps: u64 = 50; // 1 ns
     let batch: usize = 50;
 
-    let box_len = 5e-9; // 5 nm
+
+    // simulation box parameters
+    let len: f64 = 1e-8;
+    let box_length = Vector3::new(len, len, len);
     let origin = Vector3::new(0.0, 0.0, 0.0);
 
-    let cutoff = 4.2e-9;
-    let output_freq = 10;
+
+    // lennard jones parameters
+    let cutoff = 1.2e-9;
+
+    // output parameters
+    let trjname = String::from("argon");
+    let output_freq = 1;
 
 
 
 
-
+    // Creating an App
     let mut app = App::new();
 
-    /* 
-    app.insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)));
-    app.insert_resource(WindowDescriptor {
-        title: "test!".to_string(),
-        width: 598.0,
-        height: 676.0,
-        ..Default::default()
-    });
-    */
-    let mut setup_plugin = SetupPlugin {
-        atom_number: AtomNumber::new(n_atoms),
-
-        time_step: TimeStep::new(delta),
-        number_steps: Step::new(n_steps),
-        batch_size: BatchSize::new(batch),
-
-        box_size: SimBox::new(box_len, box_len, box_len),
-        box_bound: BoxBound::new(origin.x, origin.y, origin.z, SimBox::new(box_len, box_len, box_len)),
-
-        lj_cutoff: LJCutOff::new(cutoff),
-
-        cur_step: CurStep::init(),
-        trj_name:  TrjName::new(String::from("argon")),
-        output_interval: OutInterval::new(output_freq),
-
-    };
+    // Define our setup plugin,
+    // setup plugin includes all the required parameters as fields,
+    // all this parameters would be inserted to the world as resources
+    // when the plugin in built.
+    
+    let setup_plugin = SetupPlugin::new(
+        n_atoms,
+        delta,
+        n_steps,
+        batch,
+        box_length,
+        origin,
+        cutoff,
+        trjname,
+        output_freq,
+    );
 
     app.add_plugins(DefaultPlugins);
+    app.add_plugin(setup_plugin.clone());
+    
     app.add_startup_system(create_atoms.label(SetupSystems::CreateAtoms));
     app.add_startup_system(setup_camera);
-    app.add_plugin(setup_plugin.clone());
+
+
     app.add_plugin(LJPlugin);
     app.add_plugin(IntegrationPlugin);
     app.add_plugin(OutputPlugin);
@@ -97,10 +96,9 @@ fn main() {
     app.add_system(console_output);
 
     app.insert_resource(Md_ECS::bevy_bridge::Scale {0: 2e3});
-    app.insert_non_send_resource(LJCutOff{rc: 1e-9});
+    //app.insert_non_send_resource(LJCutOff{rc: 1e-9});
     println!("done plugins");
 
-    app.world.insert_resource(SimBox {x: 1e-8, y: 1e-8, z: 1e-8});
 
     println!("done setup");
     // run the simulation

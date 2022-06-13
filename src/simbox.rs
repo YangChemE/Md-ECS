@@ -3,28 +3,26 @@ use nalgebra::{Vector3};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SimBox {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub origin: Vector3<f64>,
+    pub dimension: Vector3<f64>,
 }
 
 impl SimBox {
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
+    pub fn new(origin: Vector3<f64>, x_len: f64, y_len: f64, z_len: f64) -> Self {
         Self {
-            x,
-            y,
-            z,
+            origin,
+            dimension: Vector3::new(x_len, y_len, z_len)
         }
     }
 }
 
 impl Default for SimBox {
     fn default() -> Self {
-        Self::new(1e-8, 1e-8, 1e-8)
+        Self::new(Vector3::new(0.0, 0.0, 0.0), 1e-8, 1e-8, 1e-8)
     }
 }
 
-
+/* 
 #[derive(Debug, Clone, Copy)]
 pub struct BoxBound {
     pub xmin: f64,
@@ -64,3 +62,4 @@ impl Default for BoxBound {
         )
     }
 }
+*/
