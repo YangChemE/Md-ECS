@@ -4,6 +4,7 @@ use Md_ECS::{
     molecular_dynamics::{lj_interaction::*, integration::*},
     setup::*, 
     output::{console::*, file::*},  
+    physical_quant_calc::{rdf::{RDF, RDFPlugin}, AnalysisPlugin},
 };
 
 use nalgebra::Vector3;
@@ -32,7 +33,7 @@ fn main() {
 
     /* SIMULATION PARAMETERS */
     // atom info 
-    let n_atoms: u64 = 1000;
+    let n_atoms: u64 = 500;
 
     // integration parameters
     let delta = 2e-12; //2 fs
@@ -52,7 +53,7 @@ fn main() {
     // output parameters
     let trjname = String::from("argon");
     let output_freq = 1;
-
+    let rdf_max = len / 2.0;
 
 
 
@@ -76,6 +77,17 @@ fn main() {
         output_freq,
     );
 
+
+    let rdf_calc_params = RDF::new(
+        String::from("Argon"), 
+        String::from("Argon"), 
+        200, 
+        rdf_max,
+        String::from("rdf.csv")
+    );
+
+    let rdf_plugin = RDFPlugin::new(rdf_calc_params);
+
     app.add_plugins(DefaultPlugins);
     app.add_plugin(setup_plugin.clone());
     
@@ -86,6 +98,9 @@ fn main() {
     app.add_plugin(LJPlugin);
     app.add_plugin(IntegrationPlugin);
     app.add_plugin(OutputPlugin);
+    app.add_plugin(AnalysisPlugin);
+    app.add_plugin(rdf_plugin);
+
 
     // needs to figure out the purpose of this
     app.add_system(Md_ECS::bevy_bridge::copy_positions);

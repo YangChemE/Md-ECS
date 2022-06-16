@@ -69,6 +69,7 @@ pub struct Mass {
 pub struct AtomType {
     /// the name of the atom
     pub name: String,
+    // the lennard jones paramters for the 
     pub lj_params: LJParams,
 }
 
