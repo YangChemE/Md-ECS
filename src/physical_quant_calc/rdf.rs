@@ -5,7 +5,6 @@ use crate::simbox::*;
 use crate::molecular_dynamics::integration::{Step, CurStep};
 use crate::constant;
 use crate::physical_quant_calc::{QuantityCalcStage, QuantityCalcSystems};
-use std::fmt::{self, Display};
 use std::fs::File;
 use std::io::Write;
 use std::io::{self, BufWriter};
@@ -26,10 +25,14 @@ pub struct RDF {
 impl RDF {
     pub fn new(a: String, b:String, bins: usize, rmax: f64, filename: String) -> Self {
 
-        // initialize the r vector
+        // initialize the r vector and the rho vector respectively
         let mut rs = vec![0.0; bins];
         let rhos = vec![0.0; bins];
+
+        // calculating the bin width 
         let bin_width = rmax / bins as f64;
+
+        // initialize the value of r vector
         for i in 0..bins {
             rs[i] = bin_width * i as f64;
         }
@@ -48,17 +51,18 @@ fn calc_rdf (
     cur_step: Res<CurStep>,
     tot_step: Res<Step>,
     mut rdf_data: ResMut<RDF>,
-    mut simbox: ResMut<SimBox>,
+    simbox: Res<SimBox>,
     mut query: Query<(&AtomType, &Position)>,
 ) {
+    // calculating the normalization parameter and the range of the rdf data.
     let volume = simbox.dimension.x * simbox.dimension.y * simbox.dimension.z;
     let rho_mean = (query.iter().count() as f64) / volume;
     let bin_width = rdf_data.range / rdf_data.n_bins as f64;
+
     // we need to loop over all pairs, which means this could be more efficient 
     // if we merge this calculation to the force evaluation part, where we also evaluate 
     // the distance between each pair of particles. Might consider add a system resource
     // to serve as a option.
-
     const K: usize = 2;
     let mut particle_pairs = query.iter_combinations_mut::<K>();
 
@@ -66,28 +70,60 @@ fn calc_rdf (
 
     while let Some([(atom1, pos1), (atom2, pos2)]) 
     = particle_pairs.fetch_next() {
-        if (atom1.name == rdf_data.atom_a && atom2.name == rdf_data.atom_b) || (atom1.name == rdf_data.atom_b && atom2.name == rdf_data.atom_a) {
-            let mut r = pos1.pos - pos2.pos;
 
-            // treating the pbc 
-            r[0] = r[0] - simbox.dimension.x * (r[0]/simbox.dimension.x).round(); 
-            r[1] = r[1] - simbox.dimension.y * (r[1]/simbox.dimension.y).round();
-            r[2] = r[2] - simbox.dimension.z * (r[2]/simbox.dimension.z).round();
+        if rdf_data.atom_a == rdf_data.atom_b {
+            // for the case where 
+            if atom1.name == rdf_data.atom_a && atom2.name == rdf_data.atom_a {
+                let mut r = pos1.pos - pos2.pos;
 
-            let distance = r.norm();
+                // treating the pbc 
+                r[0] = r[0] - simbox.dimension.x * (r[0]/simbox.dimension.x).round(); 
+                r[1] = r[1] - simbox.dimension.y * (r[1]/simbox.dimension.y).round();
+                r[2] = r[2] - simbox.dimension.z * (r[2]/simbox.dimension.z).round();
 
-            if distance >= rdf_data.range {
-                continue;
+                let distance = r.norm();
+
+                // we are only considering those inside the cut off distance 
+                if distance >= rdf_data.range {
+                    continue;
+                }
+                // the bin index for a certain distance is determined by module divide by the bin width 
+                let rdf_index =(distance / bin_width).floor() as usize;
+                let shell_vol = (4.0 / 3.0) * constant::PI * bin_width.powf(3.0) * ((rdf_index+1).pow(3) - rdf_index.pow(3)) as f64;
+                let addition = 2.0 / (shell_vol);// add the counting and normalize it by shell volume and rho_mean at the same time
+                rdf_data.rdf_cum.1[rdf_index] += addition; 
+                n_checked_pair += 1.0;
             }
-            let rdf_index =(distance / bin_width).floor() as usize;
-            let shell_vol = (4.0 / 3.0) * constant::PI * bin_width.powf(3.0) * ((rdf_index+1).pow(3) - rdf_index.pow(3)) as f64;
-            let addition = 2.0 / (shell_vol * rho_mean);// add the counting and normalize it by shell volume and rho_mean at the same time
-            rdf_data.rdf_cum.1[rdf_index] += addition; 
-            n_checked_pair += 1.0;
         }
+
+        else {
+            // for the case where we have different atom types, so the two atoms in the pair need to be different from each other. 
+            if (atom1.name == rdf_data.atom_a && atom2.name == rdf_data.atom_b) || (atom1.name == rdf_data.atom_b && atom2.name == rdf_data.atom_a) {
+                let mut r = pos1.pos - pos2.pos;
+
+                // treating the pbc 
+                r[0] = r[0] - simbox.dimension.x * (r[0]/simbox.dimension.x).round(); 
+                r[1] = r[1] - simbox.dimension.y * (r[1]/simbox.dimension.y).round();
+                r[2] = r[2] - simbox.dimension.z * (r[2]/simbox.dimension.z).round();
+
+                let distance = r.norm();
+
+                // we are only considering those inside the cut off distance 
+                if distance >= rdf_data.range {
+                    continue;
+                }
+                // the bin index for a certain distance is determined by module divide by the bin width 
+                let rdf_index =(distance / bin_width).floor() as usize;
+                let shell_vol = (4.0 / 3.0) * constant::PI * bin_width.powf(3.0) * ((rdf_index+1).pow(3) - rdf_index.pow(3)) as f64;
+                let addition = 2.0 / (shell_vol);// add the counting and normalize it by shell volume and rho_mean at the same time
+                rdf_data.rdf_cum.1[rdf_index] += addition; 
+                n_checked_pair += 1.0;
+            }
+        }
+        
     }
     // normalization over all the particle pairs evaluated.
-    rdf_data.rdf_cum.1 = rdf_data.rdf_cum.1.clone().into_iter().map(|x| x/(2.0*n_checked_pair)).collect();
+    rdf_data.rdf_cum.1 = rdf_data.rdf_cum.1.clone().into_iter().map(|x| x/(2.0*n_checked_pair * rho_mean)).collect();
 
 
     // normalization over all the frames and write to file at the last step.

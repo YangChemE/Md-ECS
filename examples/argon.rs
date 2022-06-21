@@ -33,16 +33,16 @@ fn main() {
 
     /* SIMULATION PARAMETERS */
     // atom info 
-    let n_atoms: u64 = 500;
+    let n_atoms: u64 = 1000;
 
     // integration parameters
     let delta = 2e-12; //2 fs
-    let n_steps: u64 = 50; // 1 ns
+    let n_steps: u64 = 1000; // 2 ns
     let batch: usize = 50;
 
 
     // simulation box parameters
-    let len: f64 = 1e-8;
+    let len: f64 = 5e-9; // the length of the box, 5 nm
     let box_length = Vector3::new(len, len, len);
     let origin = Vector3::new(0.0, 0.0, 0.0);
 
@@ -51,9 +51,9 @@ fn main() {
     let cutoff = 1.2e-9;
 
     // output parameters
-    let trjname = String::from("argon");
+    let trjname = String::from("./trjs/argon");
     let output_freq = 1;
-    let rdf_max = len / 2.0;
+    let rdf_max = 2.0e-9;
 
 
 
