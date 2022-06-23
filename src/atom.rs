@@ -116,6 +116,52 @@ impl LJParams {
 
 pub fn create_atoms (
     mut commands: Commands,
+    n_atoms: Res<AtomNumber>,
+    simbox: Res<SimBox>,
+) {
+    // we use the approximate gas molecule velocity in room temperature as
+    // the default value, and we assume the velocity to be isotropic
+    let v_dist = Normal::new(0.0, 460.0).unwrap();
+
+    let x_dist = Uniform::new(simbox.origin.x, simbox.origin.x + simbox.dimension.x);
+    let y_dist = Uniform::new(simbox.origin.y, simbox.origin.y + simbox.dimension.y);
+    let z_dist = Uniform::new(simbox.origin.z, simbox.origin.z + simbox.dimension.z);
+
+    let mut rng = rand::thread_rng();
+
+    for i in 0..n_atoms.n_atoms {
+        commands.spawn()
+            .insert(
+                Position {
+                    pos: Vector3::new (
+                        x_dist.sample(&mut rng),
+                        y_dist.sample(&mut rng),
+                        z_dist.sample(&mut rng),
+                    )
+                }
+            )
+            .insert(AtomID {id: i+1})
+            .insert(
+                Velocity {
+                    vel: Vector3::new(
+                        v_dist.sample(&mut rng),
+                        v_dist.sample(&mut rng),
+                        v_dist.sample(&mut rng),
+                    )
+                }
+            )
+            .insert(Force::default())
+            .insert(OldForce(Force::default()))
+            .insert(Mass {value: 39.948*crate::constant::AMU})
+            .insert(Atom)
+            // to be fixed, now the lj parameters are hard coded.
+            .insert(AtomType::new(String::from("Argon"), 3.4e-10, 1.654e-21));
+    }
+}
+
+
+pub fn create_atoms_render (
+    mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     n_atoms: Res<AtomNumber>,

@@ -45,28 +45,30 @@ pub fn calc_lj_force (
         // here we have a pair of atoms in the system labeled as 1 and 2 for calculating the interaction between them.
         // since the iter_combo methods returns a combinations of targeted entity withou repeatation 
         // we can calculate the force asserted on each atom of the combo and update the said force.
-        // The LJ potential is in form of Vlj = 4*epsilon * [ (sigma/r)^12 - (sigma/r)^6 ] which gives force in the form of 
-        // f = dV/dr = 
-        let mut r1 = pos1.pos - pos2.pos; // use the first atom as reference
-        // the pbc treatment
-        r1[0] = r1[0] - box_size.dimension.x * (r1[0]/box_size.dimension.x).round(); 
-        r1[1] = r1[1] - box_size.dimension.y * (r1[1]/box_size.dimension.y).round();
-        r1[2] = r1[2] - box_size.dimension.z * (r1[2]/box_size.dimension.z).round();
+        // The LJ potential is in form of Vij = 4*epsilon * [ (sigma/r)^12 - (sigma/r)^6 ] which gives force in the form of 
+        // fi = dV/dr * rij/r = 
+        let mut r12 = pos1.pos - pos2.pos; // use the second atom as reference
 
-        let r_square = r1.norm_squared();
+        // the pbc treatment
+        r12[0] = r12[0] - box_size.dimension.x * (r12[0]/box_size.dimension.x).round(); 
+        r12[1] = r12[1] - box_size.dimension.y * (r12[1]/box_size.dimension.y).round();
+        r12[2] = r12[2] - box_size.dimension.z * (r12[2]/box_size.dimension.z).round();
+
+        let r_square = r12.norm_squared();
         
         // adapting the lorentz-berthelot combining rule
         let sigma_12 = (lj_params1.sigma + lj_params2.sigma) / 2.0;
         let epsilon_12 = (lj_params1.epsilon * lj_params2.epsilon).powf(0.5);
 
-        // converting to A and B
-        //let a = 4.0 * epsilon_12 * sigma_12.powf(12.0);
-        //let b = 4.0 * epsilon_12 * sigma_12.powf(6.0);
+        // converting to C12 and C6
+        let C12 = 4.0 * epsilon_12 * sigma_12.powf(12.0);
+        let C6 = 4.0 * epsilon_12 * sigma_12.powf(6.0);
+
         if r_square < cut_off.rc.powf(2.0) { // check for cut-off distance
-            let lj_ff = 48.0 * epsilon_12 * (1.0/r_square)*(1.0/r_square.powf(3.0)) * (sigma_12.powf(12.0) * r_square.powf(3.0) - sigma_12.powf(6.0) * 0.5);
-            let lj_force_x = lj_ff * r1[0];
-            let lj_force_y = lj_ff * r1[1];
-            let lj_force_z = lj_ff * r1[2];
+            let lj_ff = 12.0 * C12 / r_square.powf(7.0) - 6.0*C6 / r_square.powf(4.0);
+            let lj_force_x = lj_ff * r12[0];
+            let lj_force_y = lj_ff * r12[1];
+            let lj_force_z = lj_ff * r12[2];
             
             // updating the old force for both particles
             //old_force1.0.force = force1.force;

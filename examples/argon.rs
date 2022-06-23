@@ -88,7 +88,8 @@ fn main() {
 
     let rdf_plugin = RDFPlugin::new(rdf_calc_params);
 
-    app.add_plugins(DefaultPlugins);
+    //app.add_plugins(DefaultPlugins);
+    app.add_plugins(MinimalPlugins);
     app.add_plugin(setup_plugin.clone());
     
     app.add_startup_system(create_atoms.label(SetupSystems::CreateAtoms));
