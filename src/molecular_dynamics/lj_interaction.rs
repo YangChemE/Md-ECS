@@ -43,12 +43,14 @@ pub fn calc_lj_force (
 ) {
     // box volume
     let box_v = box_size.dimension.x * box_size.dimension.y * box_size.dimension.z;
+    // 
+    let np = query.iter().count() as f64;
     // rho_mean 
     let rho_mean = (query.iter().count() as f64) / box_v;
     // bin width
     let bin_width = rdf_data.range / rdf_data.n_bins as f64;
     // for recording checked pair
-    let mut n_checked_pair = 0.0;
+    //let mut n_checked_pair = 0.0;
     // initiate an array for recording the rdf for this single frame
     let mut cur_rhos = vec![0.0; rdf_data.n_bins];
 
@@ -78,7 +80,6 @@ pub fn calc_lj_force (
         if cur_step.n >= rdf_data.start-1 && cur_step.n <= rdf_data.end-1 && r <= rdf_data.range {
             let rdf_ndx = (r / bin_width).floor() as usize;
             cur_rhos[rdf_ndx] += 2.0;
-            n_checked_pair += 1.0
         }
 
 
@@ -91,7 +92,7 @@ pub fn calc_lj_force (
         let C6 = 4.0 * epsilon_12 * sigma_12.powf(6.0);
 
         if r_square < cut_off.rc.powf(2.0) { // check for cut-off distance
-            let lj_ff = 12.0 * C12 / r_square.powf(7.0) - 6.0*C6 / r_square.powf(4.0);
+            let lj_ff = 12.0 * C12 / r_square.powf(7.0) - 6.0 * C6 / r_square.powf(4.0);
             let lj_force_x = lj_ff * r12[0];
             let lj_force_y = lj_ff * r12[1];
             let lj_force_z = lj_ff * r12[2];
@@ -111,12 +112,11 @@ pub fn calc_lj_force (
 
     if cur_step.n >= rdf_data.start-1 && cur_step.n <= rdf_data.end-1 {
         for i in 0..rdf_data.rdf_cum.1.len() {
-        
             let r_outer = bin_width * (i+1) as f64;
             let r_inner = bin_width * i as f64;
             let shell_vol = (4.0/3.0)*constant::PI*(r_outer.powf(3.0) - r_inner.powf(3.0));
     
-            rdf_data.rdf_cum.1[i] += cur_rhos[i] / (n_checked_pair*rho_mean*shell_vol);
+            rdf_data.rdf_cum.1[i] += cur_rhos[i] / (np*rho_mean*shell_vol);
         }
     
         if cur_step.n == rdf_data.end-1 {
