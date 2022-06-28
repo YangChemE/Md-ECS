@@ -17,13 +17,15 @@ pub struct RDF {
     pub atom_b: String,
     pub n_bins: usize,
     pub range: f64,
+    pub start: u64,
+    pub end: u64,
     pub rdf_cum: (Vec<f64>, Vec<f64>),
     pub filename: String,
 }
 
 
 impl RDF {
-    pub fn new(a: String, b:String, bins: usize, rmax: f64, filename: String) -> Self {
+    pub fn new(a: String, b:String, bins: usize, rmax: f64, start: u64, end: u64, filename: String) -> Self {
 
         // initialize the r vector and the rho vector respectively
         let mut rs = vec![0.0; bins];
@@ -41,6 +43,8 @@ impl RDF {
             atom_b: b, 
             n_bins: bins, 
             range: rmax, 
+            start,
+            end,
             rdf_cum: (rs, rhos),
             filename,
         }
@@ -54,6 +58,8 @@ fn calc_rdf (
     simbox: Res<SimBox>,
     mut query: Query<(&AtomType, &Position)>,
 ) {
+
+    println!("RDF CALC system running");
     // calculating the normalization parameter and the range of the rdf data.
     let volume = simbox.dimension.x * simbox.dimension.y * simbox.dimension.z;
     let rho_mean = (query.iter().count() as f64) / volume;
@@ -148,7 +154,7 @@ fn calc_rdf (
 
 
 
-fn write_rdf<W: Write> (
+pub fn write_rdf<W: Write> (
     writer: &mut W, 
     rdf: (Vec<f64>, Vec<f64>),
 ) -> Result<(), io::Error> {
@@ -175,6 +181,6 @@ impl RDFPlugin {
 impl Plugin for RDFPlugin {
     fn build(&self, app: &mut App) {
         app.world.insert_resource(self.params.clone());
-        app.add_system_to_stage(QuantityCalcStage, calc_rdf.label(QuantityCalcSystems::RdfCalc));
+        //app.add_system_to_stage(QuantityCalcStage, calc_rdf.label(QuantityCalcSystems::RdfCalc));
     }
 }

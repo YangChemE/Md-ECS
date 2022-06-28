@@ -33,7 +33,7 @@ fn main() {
 
     /* SIMULATION PARAMETERS */
     // atom info 
-    let n_atoms: u64 = 1000;
+    let n_atoms: u64 = 500;
 
     // integration parameters
     let delta = 2e-12; //2 fs
@@ -42,7 +42,7 @@ fn main() {
 
 
     // simulation box parameters
-    let len: f64 = 5e-9; // the length of the box, 5 nm
+    let len: f64 = 3e-9; // the length of the box, 5 nm
     let box_length = Vector3::new(len, len, len);
     let origin = Vector3::new(0.0, 0.0, 0.0);
 
@@ -53,7 +53,9 @@ fn main() {
     // output parameters
     let trjname = String::from("./trjs/argon");
     let output_freq = 1;
-    let rdf_max = 2.0e-9;
+    let rdf_max = 1.2e-9;
+    let rdf_start = n_steps/2;
+    let rdf_end = n_steps;
 
 
 
@@ -81,8 +83,10 @@ fn main() {
     let rdf_calc_params = RDF::new(
         String::from("Argon"), 
         String::from("Argon"), 
-        200, 
+        1000, 
         rdf_max,
+        rdf_start,
+        rdf_end,
         String::from("rdf.csv")
     );
 

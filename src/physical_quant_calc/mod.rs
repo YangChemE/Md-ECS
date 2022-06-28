@@ -18,3 +18,9 @@ impl Plugin for AnalysisPlugin {
         app.add_stage_after(OutputStages::FileOutput, QuantityCalcStage, SystemStage::parallel());
     }
 }
+
+#[derive(Clone, Copy)]
+pub enum RDFOption {
+    On,
+    Off,
+}

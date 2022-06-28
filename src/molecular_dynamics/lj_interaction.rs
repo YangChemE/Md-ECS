@@ -2,9 +2,14 @@ use crate::atom::*;
 use crate::constant;
 use crate::simbox::*;
 use crate::molecular_dynamics::integration::*;
+use crate::physical_quant_calc::rdf::*;
 use bevy::prelude::*;
 use bevy::tasks::ComputeTaskPool;
 use nalgebra::Vector3;
+use std::fs::File;
+use std::io::Write;
+use std::io::{self, BufWriter};
+use std::path::Path;
 
 #[derive(Clone, Copy)]
 pub struct LJCutOff {
@@ -30,10 +35,23 @@ pub fn calc_lj_force (
     timestep: ResMut<TimeStep>,
     box_size: ResMut<SimBox>,
     cut_off: ResMut<LJCutOff>,
+    mut rdf_data: ResMut<RDF>,
+    cur_step: Res<CurStep>,
+    tot_step: Res<Step>,
     mut query: Query<(&mut Force, &mut OldForce, &Position, &AtomType)>,
     //query_j: Query<(&Force, &OldForce, &Position, &LJParams)>
 ) {
-    
+    // box volume
+    let box_v = box_size.dimension.x * box_size.dimension.y * box_size.dimension.z;
+    // rho_mean 
+    let rho_mean = (query.iter().count() as f64) / box_v;
+    // bin width
+    let bin_width = rdf_data.range / rdf_data.n_bins as f64;
+    // for recording checked pair
+    let mut n_checked_pair = 0.0;
+    // initiate an array for recording the rdf for this single frame
+    let mut cur_rhos = vec![0.0; rdf_data.n_bins];
+
     const K: usize = 2;
     let mut particle_combos = query.iter_combinations_mut::<K>();
 
@@ -55,7 +73,15 @@ pub fn calc_lj_force (
         r12[2] = r12[2] - box_size.dimension.z * (r12[2]/box_size.dimension.z).round();
 
         let r_square = r12.norm_squared();
-        
+        let r = r12.norm();
+
+        if cur_step.n >= rdf_data.start-1 && cur_step.n <= rdf_data.end-1 && r <= rdf_data.range {
+            let rdf_ndx = (r / bin_width).floor() as usize;
+            cur_rhos[rdf_ndx] += 2.0;
+            n_checked_pair += 1.0
+        }
+
+
         // adapting the lorentz-berthelot combining rule
         let sigma_12 = (lj_params1.sigma + lj_params2.sigma) / 2.0;
         let epsilon_12 = (lj_params1.epsilon * lj_params2.epsilon).powf(0.5);
@@ -79,7 +105,42 @@ pub fn calc_lj_force (
             //println!("{}, {}, {}", force1.force.x, force1.force.y, force1.force.z);
         }
     }
+    
+    // normalize the radial rho by the mean rho of the system and the number of atoms calculated for
+    //cur_rhos = cur_rhos.into_iter().map(|x| x/(2.0*n_checked_pair*rho_mean)).collect();
+
+    if cur_step.n >= rdf_data.start-1 && cur_step.n <= rdf_data.end-1 {
+        for i in 0..rdf_data.rdf_cum.1.len() {
+        
+            let r_outer = bin_width * (i+1) as f64;
+            let r_inner = bin_width * i as f64;
+            let shell_vol = (4.0/3.0)*constant::PI*(r_outer.powf(3.0) - r_inner.powf(3.0));
+    
+            rdf_data.rdf_cum.1[i] += cur_rhos[i] / (n_checked_pair*rho_mean*shell_vol);
+        }
+    
+        if cur_step.n == rdf_data.end-1 {
+            rdf_data.rdf_cum.1 = rdf_data.rdf_cum.1.clone().into_iter().map(|x| x/(rdf_data.end - rdf_data.start) as f64).collect();
+    
+            let filename = rdf_data.filename.clone();
+            let path = Path::new(&filename);
+            let display = path.display();
+            let file = match File::create(&path) {
+                Err(why) => panic!("Couldn't open {}: {}", display, why.to_string()),
+                Ok(file) => file,
+            };
+    
+            let mut writer = BufWriter::new(file);
+            write_rdf(&mut writer, rdf_data.rdf_cum.clone());
+        }
+    }
+    //let temp_vol = (4.0/3.0)*constant::PI*((bin_width*21.0).powf(3.0) - (bin_width*20.0).powf(3.0));
+    //println!("cur: {}, cum: {}", cur_rhos[20]/ (n_checked_pair*rho_mean*temp_vol), rdf_data.rdf_cum.1[20]);
+
+    
 }
+
+
 
 #[derive(PartialEq, Clone, Hash, Debug, Eq, StageLabel)]
 pub enum ForceStages {

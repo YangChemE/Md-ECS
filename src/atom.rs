@@ -113,6 +113,11 @@ impl LJParams {
     }
 }
 
+#[derive(Component, Clone, Copy)]
+pub struct NeighborsList {
+
+}
+
 
 pub fn create_atoms (
     mut commands: Commands,
