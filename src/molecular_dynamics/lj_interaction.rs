@@ -97,18 +97,13 @@ pub fn calc_lj_force (
             let lj_force_y = lj_ff * r12[1];
             let lj_force_z = lj_ff * r12[2];
             
-            // updating the old force for both particles
-            //old_force1.0.force = force1.force;
-            //old_force2.0.force = force2.force;
             // updating the force for both particles
             force1.force = force1.force + Vector3::new(lj_force_x, lj_force_y, lj_force_z);
             force2.force = force2.force - Vector3::new(lj_force_x, lj_force_y, lj_force_z);
-            //println!("{}, {}, {}", force1.force.x, force1.force.y, force1.force.z);
         }
     }
     
     // normalize the radial rho by the mean rho of the system and the number of atoms calculated for
-    //cur_rhos = cur_rhos.into_iter().map(|x| x/(2.0*n_checked_pair*rho_mean)).collect();
 
     if cur_step.n >= rdf_data.start-1 && cur_step.n <= rdf_data.end-1 {
         for i in 0..rdf_data.rdf_cum.1.len() {
@@ -120,6 +115,8 @@ pub fn calc_lj_force (
         }
     
         if cur_step.n == rdf_data.end-1 {
+
+            // normalize over the used frames
             rdf_data.rdf_cum.1 = rdf_data.rdf_cum.1.clone().into_iter().map(|x| x/(rdf_data.end - rdf_data.start) as f64).collect();
     
             let filename = rdf_data.filename.clone();
@@ -134,9 +131,6 @@ pub fn calc_lj_force (
             write_rdf(&mut writer, rdf_data.rdf_cum.clone());
         }
     }
-    //let temp_vol = (4.0/3.0)*constant::PI*((bin_width*21.0).powf(3.0) - (bin_width*20.0).powf(3.0));
-    //println!("cur: {}, cum: {}", cur_rhos[20]/ (n_checked_pair*rho_mean*temp_vol), rdf_data.rdf_cum.1[20]);
-
     
 }
 

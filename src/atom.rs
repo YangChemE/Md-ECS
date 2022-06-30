@@ -119,7 +119,7 @@ pub struct NeighborsList {
 }
 
 
-pub fn create_atoms (
+pub fn create_atoms_default (
     mut commands: Commands,
     n_atoms: Res<AtomNumber>,
     simbox: Res<SimBox>,
@@ -133,7 +133,7 @@ pub fn create_atoms (
     let z_dist = Uniform::new(simbox.origin.z, simbox.origin.z + simbox.dimension.z);
 
     let mut rng = rand::thread_rng();
-
+    let atom_type = 
     for i in 0..n_atoms.n_atoms {
         commands.spawn()
             .insert(
@@ -161,7 +161,7 @@ pub fn create_atoms (
             .insert(Atom)
             // to be fixed, now the lj parameters are hard coded.
             .insert(AtomType::new(String::from("Argon"), 3.4e-10, 1.654e-21));
-    }
+    };
 }
 
 

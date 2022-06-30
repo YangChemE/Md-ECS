@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use Md_ECS::{
+    simbox::{SimBox},
     atom::*,
     molecular_dynamics::{lj_interaction::*, integration::*},
     setup::*, 
@@ -8,6 +9,8 @@ use Md_ECS::{
 };
 
 use nalgebra::Vector3;
+use std::fmt;
+use rand_distr::{Distribution, Normal, Uniform};
 
 
 fn setup_camera(
@@ -33,11 +36,11 @@ fn main() {
 
     /* SIMULATION PARAMETERS */
     // atom info 
-    let n_atoms: u64 = 500;
+    let n_atoms: u64 = 5000;
 
     // integration parameters
     let delta = 2e-12; //2 fs
-    let n_steps: u64 = 1000; // 2 ns
+    let n_steps: u64 = 5000; // 2 ns
     let batch: usize = 50;
 
 
@@ -48,13 +51,13 @@ fn main() {
 
 
     // lennard jones parameters
-    let cutoff = 1.2e-9;
+    let cutoff = 5e-9;
 
     // output parameters
     let trjname = String::from("./trjs/argon");
     let output_freq = 1;
-    let rdf_max = 1.2e-9;
-    let rdf_start = n_steps/2;
+    let rdf_max = 5.2e-11;
+    let rdf_start = 1000;
     let rdf_end = n_steps;
 
 
@@ -83,7 +86,7 @@ fn main() {
     let rdf_calc_params = RDF::new(
         String::from("Argon"), 
         String::from("Argon"), 
-        1000, 
+        200, 
         rdf_max,
         rdf_start,
         rdf_end,
@@ -97,7 +100,7 @@ fn main() {
     app.add_plugin(setup_plugin.clone());
     
     app.add_startup_system(create_atoms.label(SetupSystems::CreateAtoms));
-    app.add_startup_system(setup_camera);
+    //app.add_startup_system(setup_camera);
 
 
     app.add_plugin(LJPlugin);
@@ -129,6 +132,51 @@ fn main() {
 
 }
 
+
+pub fn create_atoms (
+    mut commands: Commands,
+    n_atoms: Res<AtomNumber>,
+    simbox: Res<SimBox>,
+) {
+    // we use the approximate gas molecule velocity in room temperature as
+    // the default value, and we assume the velocity to be isotropic
+    let v_dist = Normal::new(0.0, 460.0).unwrap();
+
+    let x_dist = Uniform::new(simbox.origin.x, simbox.origin.x + simbox.dimension.x);
+    let y_dist = Uniform::new(simbox.origin.y, simbox.origin.y + simbox.dimension.y);
+    let z_dist = Uniform::new(simbox.origin.z, simbox.origin.z + simbox.dimension.z);
+
+    let mut rng = rand::thread_rng();
+    let atom_type = 
+    for i in 0..n_atoms.n_atoms {
+        commands.spawn()
+            .insert(
+                Position {
+                    pos: Vector3::new (
+                        x_dist.sample(&mut rng),
+                        y_dist.sample(&mut rng),
+                        z_dist.sample(&mut rng),
+                    )
+                }
+            )
+            .insert(AtomID {id: i+1})
+            .insert(
+                Velocity {
+                    vel: Vector3::new(
+                        v_dist.sample(&mut rng),
+                        v_dist.sample(&mut rng),
+                        v_dist.sample(&mut rng),
+                    )
+                }
+            )
+            .insert(Force::default())
+            .insert(OldForce(Force::default()))
+            .insert(Mass {value: 39.948*Md_ECS::constant::AMU})
+            .insert(Atom)
+            // to be fixed, now the lj parameters are hard coded.
+            .insert(AtomType::new(String::from("Argon"), 3.4e-10, 1.654e-21));
+    };
+}
 
 
 
