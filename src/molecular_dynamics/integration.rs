@@ -18,6 +18,25 @@ impl CurStep {
     }
 }
 
+#[derive(Clone, Copy, Component)]
+pub struct Temperature {
+    pub sumv: Vector3<f64>,
+    pub sumv2: f64,
+    pub t_cur: f64,
+    pub t_ref: f64,
+}
+
+impl Temperature {
+    pub fn new(t_ref: f64) -> Self {
+        Self {sumv: Vector3::new(0.0, 0.0, 0.0), sumv2: 0.0, t_cur: t_ref, t_ref}
+    }
+}
+
+impl Default for Temperature {
+    fn default() -> Self {
+        Self { sumv: Vector3::new(0.0, 0.0, 0.0), sumv2: 0.0, t_cur: 298.15, t_ref: 298.15}
+    }
+}
 
 
 #[derive(Clone, Copy)]
@@ -80,17 +99,19 @@ impl Default for BatchSize {
 fn velocity_verlet_integrate_position (
     pool: Res<ComputeTaskPool>,
     batch_size: Res<BatchSize>,
+    mut temp: ResMut<Temperature>,
     timestep: ResMut<TimeStep>,
     simbox: Res<SimBox>,
     mut query: Query<(&mut Position, &Velocity, &Force, &Mass)>,
 ) {
-
+    temp.sumv = Vector3::new(0.0, 0.0, 0.0);
+    temp.sumv2 = 0.0;
     let dt = timestep.delta;
     query.par_for_each_mut(
         &pool,
         batch_size.0,
         |(mut pos, vel, force, mass)|{
-            pos.pos = pos.pos + vel.vel * dt + force.force/(constant::AMU*mass.value) / 2.0 * dt * dt;
+            pos.pos = pos.pos + vel.vel * dt + (force.force/(constant::AMU*mass.value) / 2.0) * dt * dt;
 
             // to deal with the pbc
             pos.pos.x = pbc(pos.pos.x, simbox.origin.x, simbox.dimension.x);
@@ -124,11 +145,16 @@ fn velocity_verlet_integrate_velocity (
     pool: Res<ComputeTaskPool>,
     batch_size: Res<BatchSize>,
     timestep: Res<TimeStep>,
+    mut temp: ResMut<Temperature>,
     mut cur_step: ResMut<CurStep>,
     mut query: Query<(&mut Velocity, &Force, &OldForce, &Mass)>,
 ) {
     let dt = timestep.delta;
-    //println!("integration running!");
+    let atom_number = query.iter().count() as f64;
+    let mut sumv = Vector3::new(0.0, 0.0, 0.0);
+    let mut sumv2 = 0.0;
+
+    // updating the velocities
     query.par_for_each_mut (
         &pool,
         batch_size.0,
@@ -136,6 +162,21 @@ fn velocity_verlet_integrate_velocity (
             vel.vel += (force.force + old_force.0.force) / (constant::AMU * mass.value) / 2.0 * dt;
         }    
     );
+
+    // calculating the COM vel
+    for (vel, _, _, _) in query.iter() {
+        sumv += vel.vel;  
+    }
+    let v_com = sumv/atom_number;
+    //println!("v com , {}", v_com);
+    for (mut vel, _, _, _) in query.iter_mut() {
+        // substract the COM vel
+        vel.vel = vel.vel - v_com;
+        sumv2 += vel.vel.norm_squared();       
+    }
+
+    temp.t_cur = (constant::AMU * 39.948 * sumv2) / atom_number / (3.0 * constant::BOLTZCONST);
+    println!("current T: {}.", temp.t_cur);
     cur_step.n += 1;
 }
 
@@ -193,8 +234,8 @@ impl Plugin for IntegrationPlugin {
 
         // This is only useful when we need to add atoms during the simulation,
         // which we are not implementing yet.
-        //app.add_system_to_stage(IntegrationStages::BeginIntegration, 
-        //    add_old_force_to_new_atoms.label(IntegrationSystems::AddOldForceToNewAtoms));
+        // app.add_system_to_stage(IntegrationStages::BeginIntegration, 
+        // add_old_force_to_new_atoms.label(IntegrationSystems::AddOldForceToNewAtoms));
     }
 }
 

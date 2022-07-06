@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use Md_ECS::{
+    constant,
     simbox::{SimBox},
     atom::*,
     molecular_dynamics::{lj_interaction::*, integration::*},
@@ -36,30 +37,35 @@ fn main() {
 
     /* SIMULATION PARAMETERS */
     // atom info 
-    let n_atoms: u64 = 5000;
+    let n_atoms: u64 = 50;
+    let t_ini = 298.15;
+    let v_ini = (constant::BOLTZCONST * t_ini / (constant::AMU * 39.948)).powf(0.5);
+    println!("initial v: {}", v_ini);
 
     // integration parameters
-    let delta = 2e-12; //2 fs
-    let n_steps: u64 = 5000; // 2 ns
+    let delta = 2e-15; //2 fs
+    let n_steps: u64 = 50000; // 100 ps
     let batch: usize = 50;
 
 
     // simulation box parameters
-    let len: f64 = 3e-9; // the length of the box, 5 nm
+    let len: f64 = 2e-9; // the length of the box, 5 nm
     let box_length = Vector3::new(len, len, len);
     let origin = Vector3::new(0.0, 0.0, 0.0);
 
 
     // lennard jones parameters
-    let cutoff = 5e-9;
+    let cutoff = 1e-9;
 
     // output parameters
     let trjname = String::from("./trjs/argon");
-    let output_freq = 1;
-    let rdf_max = 5.2e-11;
-    let rdf_start = 1000;
+    let output_freq = 100;
+    let rdf_max = 1.0e-9;
+    let rdf_start = 500;
     let rdf_end = n_steps;
 
+    // system parameters
+    let temp = 298.15;
 
 
     // Creating an App
@@ -71,6 +77,8 @@ fn main() {
     // when the plugin in built.
     
     let setup_plugin = SetupPlugin::new(
+        temp,
+
         n_atoms,
         delta,
         n_steps,
@@ -136,11 +144,14 @@ fn main() {
 pub fn create_atoms (
     mut commands: Commands,
     n_atoms: Res<AtomNumber>,
+    temp: Res<Temperature>,
     simbox: Res<SimBox>,
 ) {
+    let t_ini = temp.t_ref;
+    let v_ini = (constant::BOLTZCONST * t_ini / (constant::AMU * 39.948)).powf(0.5);
     // we use the approximate gas molecule velocity in room temperature as
     // the default value, and we assume the velocity to be isotropic
-    let v_dist = Normal::new(0.0, 460.0).unwrap();
+    let v_dist = Normal::new(0.0, v_ini).unwrap();
 
     let x_dist = Uniform::new(simbox.origin.x, simbox.origin.x + simbox.dimension.x);
     let y_dist = Uniform::new(simbox.origin.y, simbox.origin.y + simbox.dimension.y);
@@ -171,7 +182,7 @@ pub fn create_atoms (
             )
             .insert(Force::default())
             .insert(OldForce(Force::default()))
-            .insert(Mass {value: 39.948*Md_ECS::constant::AMU})
+            .insert(Mass {value: 39.948})
             .insert(Atom)
             // to be fixed, now the lj parameters are hard coded.
             .insert(AtomType::new(String::from("Argon"), 3.4e-10, 1.654e-21));

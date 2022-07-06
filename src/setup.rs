@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::{
     atom::AtomNumber,
     molecular_dynamics::{
-        integration::{TimeStep, Step, BatchSize, CurStep},
+        integration::{TimeStep, Step, BatchSize, CurStep, Temperature},
         lj_interaction::LJCutOff
     },
     simbox::{SimBox},
@@ -18,6 +18,9 @@ use nalgebra::{Vector3};
 
 #[derive(Clone)]
 pub struct SetupPlugin {
+    // system parameteres
+    pub temp: Temperature,
+
     // atoms information
     pub atom_number: AtomNumber,
 
@@ -40,6 +43,8 @@ pub struct SetupPlugin {
 
 impl SetupPlugin {
     pub fn new(
+        temp: f64,
+
         n_atoms: u64,
         delta: f64,
         n_steps: u64,
@@ -53,6 +58,7 @@ impl SetupPlugin {
         trjname: String,
         interval: u64,
     ) -> Self {
+        let temp = Temperature::new(temp);
         let atom_number = AtomNumber::new(n_atoms);
         let time_step = TimeStep::new(delta);
         let number_steps = Step::new(n_steps);
@@ -64,6 +70,8 @@ impl SetupPlugin {
         let output_interval = OutInterval::new(interval);
 
         Self {
+            temp,
+
             atom_number,
             time_step,
             number_steps,
@@ -80,6 +88,7 @@ impl SetupPlugin {
 impl Default for SetupPlugin {
     fn default() -> Self {
         Self { 
+            temp: Temperature::default(),
             atom_number: AtomNumber::default(),
 
             time_step: TimeStep::default(), 
@@ -102,6 +111,9 @@ impl Default for SetupPlugin {
 
 impl Plugin for SetupPlugin {
     fn build(&self, app: &mut App) {
+        // add system information
+        app.world.insert_resource(self.temp);
+
         // add atom information
         app.world.insert_resource(self.atom_number);
 

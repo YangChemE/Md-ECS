@@ -157,7 +157,7 @@ pub fn create_atoms_default (
             )
             .insert(Force::default())
             .insert(OldForce(Force::default()))
-            .insert(Mass {value: 39.948*crate::constant::AMU})
+            .insert(Mass {value: 39.948})
             .insert(Atom)
             // to be fixed, now the lj parameters are hard coded.
             .insert(AtomType::new(String::from("Argon"), 3.4e-10, 1.654e-21));
@@ -205,7 +205,7 @@ pub fn create_atoms_render (
             )
             .insert(Force::default())
             .insert(OldForce(Force::default()))
-            .insert(Mass {value: 39.948*crate::constant::AMU})
+            .insert(Mass {value: 39.948})
             .insert(Atom)
             // to be fixed, now the lj parameters are hard coded.
             .insert(AtomType::new(String::from("Argon"), 3.4e-10, 1.654e-21))

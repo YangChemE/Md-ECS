@@ -49,8 +49,7 @@ pub fn calc_lj_force (
     let rho_mean = (query.iter().count() as f64) / box_v;
     // bin width
     let bin_width = rdf_data.range / rdf_data.n_bins as f64;
-    // for recording checked pair
-    //let mut n_checked_pair = 0.0;
+
     // initiate an array for recording the rdf for this single frame
     let mut cur_rhos = vec![0.0; rdf_data.n_bins];
 
@@ -59,7 +58,7 @@ pub fn calc_lj_force (
 
     while let Some([(mut force1, mut old_force1, pos1, atom1), (mut force2, mut old_force2, pos2, atom2)]) 
     = particle_combos.fetch_next() {
-        //println!("force calculation!");
+        
         let lj_params1 = atom1.lj_params;
         let lj_params2 = atom2.lj_params;
         // here we have a pair of atoms in the system labeled as 1 and 2 for calculating the interaction between them.
@@ -101,8 +100,10 @@ pub fn calc_lj_force (
             force1.force = force1.force + Vector3::new(lj_force_x, lj_force_y, lj_force_z);
             force2.force = force2.force - Vector3::new(lj_force_x, lj_force_y, lj_force_z);
         }
+        
     }
-    
+
+
     // normalize the radial rho by the mean rho of the system and the number of atoms calculated for
 
     if cur_step.n >= rdf_data.start-1 && cur_step.n <= rdf_data.end-1 {
